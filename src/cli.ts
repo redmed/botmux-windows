@@ -3145,6 +3145,16 @@ async function printAddBotLiveHint(appId: string): Promise<void> {
  *  transient probe failure can't block reattaching live sessions (PR#249). An
  *  unexpected exception in the probe itself is non-fatal for the same reason. */
 async function ensureSystemDependencies(): Promise<void> {
+  if (process.platform === 'win32') {
+    const unsupported = loadBotsJson().find(b => (b?.backendType ?? config.daemon.backendType) !== 'pty');
+    if (unsupported) {
+      console.error('Windows 原生版本当前支持 pty 后端；请将 bots.json 中的 backendType 设置为 pty 后重试。');
+      process.exit(1);
+    }
+    // Unix bootstrap tries package managers for tmux/fonts. Native Windows
+    // ships ConPTY and uses installed system fonts, so it has no such step.
+    return;
+  }
   const { ensureDependencies, shouldHardFailStartupForMissingTmux } = await import('./setup/index.js');
   let report: Awaited<ReturnType<typeof ensureDependencies>>;
   try {
@@ -3281,6 +3291,22 @@ async function cmdLogs(): Promise<void> {
     process.exit(0);
   }
 
+  if (process.platform === 'win32') {
+    const { LogFileFollower } = await import('./cli/log-tail.js');
+    const follower = new LogFileFollower({
+      sources: files.map(file => ({ file, label: file, stream: 'out' as const })),
+      writeLine: line => console.log(line),
+    });
+    const count = Number(lines);
+    if (!Number.isSafeInteger(count) || count < 0) throw new Error('--lines must be a nonnegative integer');
+    follower.printInitialTail(count);
+    if (follow) {
+      follower.start();
+      process.once('SIGINT', () => { follower.stop(); process.exit(0); });
+    }
+    return;
+  }
+
   // Stream with `tail`: `-n <lines>` for the backlog, `-F` to follow across the
   // supervisor's log rotation/reopen on restart. Multiple files get `==> file`
   // banners from tail itself. `--no-follow` prints the backlog and exits.
@@ -3365,6 +3391,9 @@ async function cmdUpgrade(args: string[] = []): Promise<void> {
     process.exit(2);
   }
 
+  if (process.platform === 'win32') {
+    throw new Error('Windows native: use the verified Windows release installer (windows/manage.mjs); the upstream npm package has no Windows runtime.');
+  }
   // 本地 checkout（有 .git/src）：走 git pull --ff-only → 重新 build → 从本
   // checkout 重启，而不是拿全局包管理器去升级（那对 dev 部署无效，见
   // install-info.ts 的 isLocalDevInstall 说明）。
