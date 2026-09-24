@@ -49,7 +49,7 @@ export function getDashboardExternalHost(): string {
 }
 
 /**
- * Default session backend: always tmux (PTY 退役).
+ * Default session backend: tmux on POSIX, native ConPTY on Windows.
  *
  * PTY is no longer an automatic fallback. It used to be picked here whenever
  * the tmux functional probe failed, which meant hosts with a broken/missing
@@ -61,7 +61,7 @@ export function getDashboardExternalHost(): string {
  * BACKEND_TYPE=pty (or per-bot backendType:'pty') opt-in.
  */
 function detectDefaultBackend(): Exclude<BackendType, 'herdr'> {
-  return 'tmux';
+  return process.platform === 'win32' ? 'pty' : 'tmux';
 }
 
 // The fallback data dir used when SESSION_DATA_DIR is not set. Resolved through
