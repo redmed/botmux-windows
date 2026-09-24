@@ -20,7 +20,7 @@ function git(args, cwd = root) {
 if (git(['status', '--porcelain', '--untracked-files=normal'])) throw new Error('Commit downstream changes before synchronization');
 const old = JSON.parse(readFileSync(join(root, 'windows/release.json'), 'utf8'));
 git(['fetch', 'upstream', ref]);
-const target = git(['rev-parse', 'FETCH_HEAD']);
+const target = git(['rev-parse', 'FETCH_HEAD^{commit}']);
 const touched = git(['diff', '--name-only', old.upstreamCommit, 'HEAD', '--', 'src']);
 const overlap = touched ? git(['diff', '--name-only', old.upstreamCommit, target, '--', ...touched.split('\n')]) : '';
 console.log(`Upstream ${ref}: ${target}\nIntegration files changed upstream:\n${overlap || '(none)'}`);
