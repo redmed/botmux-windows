@@ -1,5 +1,6 @@
 import { botInjectedEnv } from '../../core/env-policy.js';
 import * as pty from 'node-pty';
+import { prepareHostSpawn, closeHostPty, hostPtyOptions, disposeExitedHostPty } from '../../host/runtime.js';
 import { chmodSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -33,7 +34,12 @@ export class PtyBackend implements SessionBackend {
       `[pty] spawn bin=${bin} args=${JSON.stringify(args)} ` +
       `cwd=${opts.cwd} ${opts.cols}x${opts.rows}`,
     );
-    this.process = pty.spawn(bin, args, {
+    const env = opts.injectEnv
+      ? { ...opts.env, ...(opts.strictEnv ? botInjectedEnv(opts.injectEnv, { mode: 'strict' }) : opts.injectEnv) }
+      : opts.env;
+    const launch = prepareHostSpawn(bin, args, env);
+    this.process = pty.spawn(launch.command, launch.args, {
+      ...hostPtyOptions(),
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
@@ -41,9 +47,14 @@ export class PtyBackend implements SessionBackend {
       // No shared backing server here, so per-bot env (opts.injectEnv) is safe
       // to merge straight into the child env — appended last so it wins over a
       // same-named key already in opts.env.
-      env: opts.injectEnv ? { ...opts.env, ...(opts.strictEnv ? botInjectedEnv(opts.injectEnv, { mode: 'strict' }) : opts.injectEnv) } : opts.env,
+      env,
     });
-    logger.debug(`[pty] spawned pid=${this.process.pid}`);
+    const owned = this.process;
+    owned.onExit(() => {
+      if (this.process === owned) this.process = null;
+      disposeExitedHostPty(owned);
+    });
+    logger.debug(`[pty] spawned pid=${owned.pid}`);
   }
 
   write(data: string): boolean {
@@ -74,8 +85,9 @@ export class PtyBackend implements SessionBackend {
 
   kill(): void {
     if (this.process) {
-      try { this.process.kill(); } catch { /* already dead */ }
+      const owned = this.process;
       this.process = null;
+      closeHostPty(owned);
     }
   }
 }
