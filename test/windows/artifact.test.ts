@@ -57,6 +57,10 @@ it('keeps the release bootstrap pinned to the declared Windows version', () => {
   const release = JSON.parse(readFileSync(join(process.cwd(), 'windows/release.json'), 'utf8'));
   const installer = readFileSync(join(process.cwd(), 'windows/install.ps1'), 'utf8');
   expect(installer).toContain(`[string]$Version = '${release.version}'`);
+  expect(installer).toContain(`[Version]'${release.nodeMinimum}'`);
   expect(installer).toContain('releases/download/$tag');
   expect(installer).toContain('Get-FileHash -Algorithm SHA256');
+  expect(installer).toContain('Get-Command curl.exe -ErrorAction SilentlyContinue');
+  expect(installer).toContain('Invoke-WebRequest -UseBasicParsing');
+  expect(installer).toContain('Get-Command Expand-Archive -ErrorAction SilentlyContinue');
 });

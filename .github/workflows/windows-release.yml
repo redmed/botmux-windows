@@ -35,7 +35,7 @@ jobs:
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "bun_version=${bun_version}" >> "$GITHUB_OUTPUT"
-          echo "asset=botmux-windows-x64-${version}.tgz" >> "$GITHUB_OUTPUT"
+          echo "asset=botmux-windows-x64-${version}.zip" >> "$GITHUB_OUTPUT"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ steps.release.outputs.bun_version }}
@@ -47,7 +47,7 @@ jobs:
       - shell: bash
         run: |
           mkdir -p release
-          tar -czf "release/${{ steps.release.outputs.asset }}" -C build/windows-native .
+          (cd build/windows-native && zip -qr "../../release/${{ steps.release.outputs.asset }}" .)
           (cd release && sha256sum "${{ steps.release.outputs.asset }}" > "${{ steps.release.outputs.asset }}.sha256")
           cp windows/install.ps1 release/install.ps1
       - uses: actions/upload-artifact@v4
@@ -77,15 +77,19 @@ jobs:
           $expected = ((Get-Content -Raw "release/$asset.sha256") -split '\s+')[0].ToLowerInvariant()
           $actual = (Get-FileHash -Algorithm SHA256 "release/$asset").Hash.ToLowerInvariant()
           if ($actual -ne $expected) { throw "SHA-256 mismatch: $actual != $expected" }
-          New-Item -ItemType Directory 'candidate with spaces' | Out-Null
-          & "$env:SystemRoot/System32/tar.exe" -xzf "release/$asset" -C 'candidate with spaces'
+          Expand-Archive -LiteralPath "release/$asset" -DestinationPath 'candidate with spaces'
+          node 'candidate with spaces/windows/manage.mjs' install 'candidate with spaces' --root "$env:RUNNER_TEMP/BotMux direct installed"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node 'candidate with spaces/windows/manage.mjs' install 'candidate with spaces' --root "$env:RUNNER_TEMP/BotMux installed"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $actualVersion = & "$env:RUNNER_TEMP/BotMux installed/bin/botmux.cmd" --version
+          $actualVersion = & "$env:RUNNER_TEMP/BotMux direct installed/bin/botmux.cmd" --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($actualVersion.Trim() -ne '${{ needs.build.outputs.version }}') { throw "Unexpected version: $actualVersion" }
           [void][scriptblock]::Create((Get-Content -Raw 'release/install.ps1'))
+          $archiveUrl = ([Uri](Resolve-Path "release/$asset").Path).AbsoluteUri
+          $checksumUrl = ([Uri](Resolve-Path "release/$asset.sha256").Path).AbsoluteUri
+          & 'release/install.ps1' -Version '${{ needs.build.outputs.version }}' -ArchiveUrl $archiveUrl -ChecksumUrl $checksumUrl -InstallRoot "$env:RUNNER_TEMP/BotMux bootstrap installed" -NoPath
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $bootstrapVersion = & "$env:RUNNER_TEMP/BotMux bootstrap installed/bin/botmux.cmd" --version
+          if ($bootstrapVersion.Trim() -ne '${{ needs.build.outputs.version }}') { throw "Unexpected bootstrap version: $bootstrapVersion" }
 
   publish:
     needs: [build, verify]
