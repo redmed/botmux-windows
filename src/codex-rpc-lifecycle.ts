@@ -108,13 +108,24 @@ export class RpcEngagementFence {
  *     are only wired for tmux. On herdr/zellij a surviving dead `--remote` pane
  *     would be misjudged as native and reattached, and pty has no persistent
  *     pane at all — so restrict RPC to tmux until each backend's replace path is
- *     built + verified. */
+ *     built + verified. The Windows TraeX PTY exception below always creates
+ *     a fresh viewer; it never probes or reattaches a persistent pane. */
 export interface CodexRpcRuntimeGates {
+  platform?: NodeJS.Platform;
   /** Process-wide BOTMUX_SANDBOX=1 force. It is not represented in InitCfg but
    *  must gate RPC too: the app-server owns model execution and otherwise runs
    *  outside the sandbox wrapped around the viewer pane. */
   sandboxForced?: boolean;
 }
+
+/** Native TraeX 0.207.1 rewrites the first U+3001 in TUI submissions. RPC
+ * preserves the text and supplies an acknowledged turn id. Never silently
+ * fall back to that TUI path on Windows, including on resume/setup failure. */
+export function requiresWindowsTraexRpc(cfg: InitCfg, platform = process.platform): boolean {
+  return platform === 'win32' && cfg.cliId === 'traex' && cfg.backendType === 'pty';
+}
+
+export const WINDOWS_TRAEX_RPC_ERROR = 'Windows TraeX requires codexRpcInput=true and a compatible native executable, without sandbox, read isolation, approval gating, wrappers or startup commands. RPC could not start; input was not retried through the TUI.';
 
 function executableName(value: string): string {
   const normalized = value.replace(/\\/g, '/').replace(/\/+$/, '');
@@ -137,7 +148,7 @@ export function codexRpcEligible(cfg: InitCfg, runtime: CodexRpcRuntimeGates = {
       : !cfg.cliPathOverride;
   return (
     cfg.codexRpcInput === true && RPC_CAPABLE_CLIS.has(cfg.cliId) &&
-    cfg.backendType === 'tmux' &&
+    (cfg.backendType === 'tmux' || requiresWindowsTraexRpc(cfg, runtime.platform)) &&
     cfg.adoptMode !== true && cfg.readIsolation !== true && cfg.sandbox !== true && runtime.sandboxForced !== true &&
     cfg.disableCliBypass !== true &&
     !cfg.startupCommands?.length &&
@@ -274,8 +285,14 @@ export async function orchestrateCodexRpcInit(
   runtime: CodexRpcRuntimeGates = {},
 ): Promise<RpcInitDecision> {
   const NONE: RpcInitDecision = { engaged: false, queuePrompt: false, abortSpawn: false };
-  if (!codexRpcEligible(cfg, runtime)) return NONE;
-  const pane = fx.paneInfo(cfg.sessionId);
+  const windowsTraex = requiresWindowsTraexRpc(cfg, runtime.platform);
+  if (!codexRpcEligible(cfg, runtime)) {
+    if (windowsTraex) throw new Error(WINDOWS_TRAEX_RPC_ERROR);
+    return NONE;
+  }
+  // PTY has no surviving pane. Resume always creates a new engine and viewer;
+  // never probe tmux or attach a viewer pointing at a dead app-server.
+  const pane = windowsTraex ? null : fx.paneInfo(cfg.sessionId);
   if (!pane || !pane.live) {
     // Fresh session, or a resume whose pane didn't survive.
     await fx.prepare();
@@ -295,6 +312,7 @@ export async function orchestrateCodexRpcInit(
         // Resume engaged (no pre-send) → queue the waking prompt for post-ready flush.
         return { engaged: true, queuePrompt: true, abortSpawn: false };
       case 'not-engaged':
+        if (windowsTraex) throw new Error(WINDOWS_TRAEX_RPC_ERROR);
         return NONE; // setup failed or frame never dispatched → safe paste fallback
     }
   }

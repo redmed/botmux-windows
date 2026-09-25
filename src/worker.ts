@@ -303,7 +303,7 @@ import {
   bareShellLaunchGuidance,
   settleLaunchComm,
 } from './core/session-discovery.js';
-import { CODEX_RPC_TERMINAL_HYDRATION_DELAYS_MS, RpcEngagementFence, codexRpcEligible, paneRunsRemoteTui, orchestrateCodexRpcInit, rolloutUserTurnMatches, decideStartupDialogAction, shouldQueueInitialPrompt, shouldPreMarkFirstTurn, killAndVerifyPersistentPane, rpcTranscriptIngestBlockedByAwaitingActivation, type EngageOutcome } from './codex-rpc-lifecycle.js';
+import { CODEX_RPC_TERMINAL_HYDRATION_DELAYS_MS, RpcEngagementFence, requiresWindowsTraexRpc, WINDOWS_TRAEX_RPC_ERROR, codexRpcEligible, paneRunsRemoteTui, orchestrateCodexRpcInit, rolloutUserTurnMatches, decideStartupDialogAction, shouldQueueInitialPrompt, shouldPreMarkFirstTurn, killAndVerifyPersistentPane, rpcTranscriptIngestBlockedByAwaitingActivation, type EngageOutcome } from './codex-rpc-lifecycle.js';
 import { delay } from './utils/timing.js';
 import { claudeJsonlPathForSession, resolveJsonlFromPid, findOpenClaudeSessionIds, syncClaudeResumeTargetToCwd, resolveShadowedStatusLine, DEFAULT_CLAUDE_DATA_DIR } from './adapters/cli/claude-code.js';
 import { sessionReadyHookCommand } from './adapters/hook-command.js';
@@ -1253,7 +1253,10 @@ async function engageCodexRpc(cfg: Extract<DaemonToWorker, { type: 'init' }>): P
   if (cfg.cliInstanceBinding && cfg.cliInstanceBinding.source !== 'legacy' && cfg.backendType === 'tmux') {
     TmuxBackend.assertInstanceIdentity(TmuxBackend.sessionName(cfg.sessionId), codexInstanceIdentity(cfg.cliInstanceBinding, cfg.cliRuntime));
   }
-  if (!codexRpcEligible(cfg, { sandboxForced: sandboxEnabled() })) return 'not-engaged';
+  if (!codexRpcEligible(cfg, { sandboxForced: sandboxEnabled() })) {
+    if (requiresWindowsTraexRpc(cfg)) throw new Error(WINDOWS_TRAEX_RPC_ERROR);
+    return 'not-engaged';
+  }
   const wantResume = cfg.resume === true && !!cfg.cliSessionId;
   stopCodexRpcEngine();
   const engagementLease = rpcEngagementFence.begin();
@@ -1390,6 +1393,7 @@ async function engageCodexRpc(cfg: Extract<DaemonToWorker, { type: 'init' }>): P
         // engine down and fall back to paste. flushPending marks the bridge once
         // on the paste path — we must NOT pre-mark here or that would double-mark
         // the same turnId and leave a stale, never-consumed queue head (Codex P1).
+        if (requiresWindowsTraexRpc(cfg)) throw new Error(WINDOWS_TRAEX_RPC_ERROR);
         log('Codex RPC fresh first turn: frame not dispatched → falling back to paste (safe, single execution)');
         clearRpcEnginePidMarker();
         try { engine.stop(); } catch { /* best effort */ }
@@ -1520,13 +1524,14 @@ async function engageCodexRpc(cfg: Extract<DaemonToWorker, { type: 'init' }>): P
       stopCodexRpcEngine();
       throw err;
     }
-    log(`Codex RPC input failed to start (${err?.message ?? err}); falling back to paste mode`);
+    log(`Codex RPC input failed to start (${err?.message ?? err})`);
     clearRpcEnginePidMarker();
     try { engine?.stop(); } catch { /* best effort */ }   // P1-3a: stop the LOCAL ref (codexRpcEngine may be unassigned)
     // The local engine may not yet have been published into codexRpcEngine.
     // Still clear any exact lifecycle state its callbacks installed before the
     // failure; otherwise paste fallback could inherit a stale fail-closed mark.
     stopCodexRpcEngine();
+    if (requiresWindowsTraexRpc(cfg)) throw new Error(`${WINDOWS_TRAEX_RPC_ERROR} ${err?.message ?? err}`);
     return 'not-engaged';
   }
 }

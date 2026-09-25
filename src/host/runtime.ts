@@ -2,7 +2,7 @@
  * Keep Windows command parsing here: callers pass an executable and argv,
  * never a shell program. POSIX spawning retains its existing argv semantics. */
 import { accessSync, constants, statSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { delimiter, isAbsolute, join, win32 } from 'node:path';
 
 export function normalizeWindowsPath(value: string): string {
@@ -71,12 +71,29 @@ export function prepareHostSpawn(
 export function closeHostPty(child: { pid: number; kill(): void }, platform: NodeJS.Platform = process.platform): void {
   if (platform === 'win32' && Number.isSafeInteger(child.pid) && child.pid > 1) {
     // /T is essential: closing only cmd.exe leaves its CLI grandchildren alive.
-    spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
-      windowsHide: true, stdio: 'ignore', timeout: 5_000,
-    });
+    killWindowsProcessTree(child.pid);
   }
   try { child.kill(); } catch { /* ConPTY may already be detached. */ }
   disposeExitedHostPty(child, platform);
+}
+
+/** Caller must own the live child or have just attested a stale process. */
+export function killWindowsProcessTree(pid: number): void {
+  if (!Number.isSafeInteger(pid) || pid <= 1) return;
+  spawnSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+    windowsHide: true, stdio: 'ignore', timeout: 5_000,
+  });
+}
+
+/** PID-reuse check for RPC orphan recovery; never expose a general shell
+ * interpolation surface. Only a validated decimal PID enters the command. */
+export function windowsProcessCommandLine(pid: number): string | undefined {
+  if (!Number.isSafeInteger(pid) || pid <= 1) return undefined;
+  try {
+    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      `[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); (Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}').CommandLine`],
+    {encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000}).trim() || undefined;
+  } catch { return undefined; }
 }
 
 /** Bundled ConPTY closes without node-pty's racy console-list helper, which
