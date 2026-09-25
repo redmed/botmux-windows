@@ -38,15 +38,22 @@ try {
     if (entry.isSymbolicLink() || !entry.isDirectory()) throw new Error(`Use an independent clone: ${name} must be a real directory`);
   }
   const sourcePath = Object.entries(process.env).find(([key]) => key.toLowerCase() === 'path')?.[1] || '';
-  function executable(name) {
+  function executable(name, extraCandidates = []) {
     const candidates = isAbsolute(name) || /[\\/]/.test(name)
       ? [resolve(name)]
       : sourcePath.split(';').filter(Boolean).map(dir => join(dir.replace(/^"|"$/g, ''), name));
-    const found = candidates.find(path => { try { return statSync(path).isFile(); } catch { return false; } });
+    const found = [...candidates, ...extraCandidates].find(path => { try { return statSync(path).isFile(); } catch { return false; } });
     if (!found) throw new Error(`Cannot find ${name}. Install Git for Windows and Bun ${release.bunVersion}, or pass --bun <bun.exe>`);
     return found;
   }
-  const bun = executable(bunArg || process.env.BOTMUX_BUILD_BUN || 'bun.exe');
+  const explicitBun = bunArg || process.env.BOTMUX_BUILD_BUN;
+  // npm exposes bun.cmd/bun.ps1 on PATH. Resolve its native executable instead
+  // of invoking a shell shim (including local node_modules/.bin layouts).
+  const npmBunCandidates = sourcePath.split(';').filter(Boolean).flatMap(dir => {
+    const base = dir.replace(/^"|"$/g, '');
+    return [join(base, 'node_modules/bun/bin/bun.exe'), join(base, '../bun/bin/bun.exe')];
+  });
+  const bun = executable(explicitBun || 'bun.exe', explicitBun ? [] : npmBunCandidates);
   const git = executable('git.exe');
   const env = { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1', BOTMUX_BUILD_BUN: bun };
   for (const key of Object.keys(env)) if (key.toLowerCase() === 'path') delete env[key];
@@ -66,7 +73,7 @@ try {
     throw new Error('Commit source changes or use a clean independent clone before building');
   }
   console.log(JSON.stringify({ platform: process.platform, arch: process.arch, node: process.versions.node,
-    bun: bunVersion, version: release.version, sourceCommit, sourceRoot: root }));
+    bun: bunVersion, bunExecutable: bun, version: release.version, sourceCommit, sourceRoot: root }));
   if (checkOnly) process.exit(0);
   run(bun, ['install', '--frozen-lockfile']);
   // Reuse the upstream recipe; its executable-bit step uses a portable Node helper.
