@@ -105,6 +105,15 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 
 手动候选流水线位于 `.github/workflows/windows-native.yml`。它只生成验证 artifact，不发布 npm 包，也不会修改生产环境。
 
+验收完成并提交所有修改后，先用只读模式检查发布条件，再显式触发发布：
+
+```sh
+node windows/publish-release.mjs
+node windows/publish-release.mjs --remote fork --publish
+```
+
+脚本要求工作区干净、分支名为 `windows/native-vX.Y.Z`、当前提交包含 `release.json` 固定的上游提交，并校验安装脚本中的版本和 Node 下限一致。默认只做检查；只有显式传入 `--publish` 才会推送当前分支和 annotated tag。之后 GitHub Actions 自动在 Linux 构建 ZIP，在 Windows Node 22/24 上执行安装、CLI 和 ConPTY 验证，通过后发布 Release、SHA-256 和安装脚本。
+
 ## 安装包与发布边界
 
 - 普通用户优先使用经过验证的 Windows 运行包，省去本机编译时间；需要审计或自行修改时可直接走上述源码安装流程。
