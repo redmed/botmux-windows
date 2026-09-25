@@ -8,7 +8,7 @@
 - ConPTY 使用 node-pty 自带 DLL，避开系统控制台关闭后的 `AttachConsole` 竞态。node-pty 1.1.0 在退出时可能遗留 conout worker，本版在 host 层集中释放它；升级 node-pty 时必须复核这一处内部接口，并确认验证进程能自然结束。
 - 复用上游 `PtyBackend`、内置 supervisor、持久化存储和 Task Scheduler。Windows 默认 PTY；POSIX 默认 tmux。显式配置仍有优先权。
 - Windows 日志使用上游已有 `LogFileFollower`，无需安装 tail。
-- `windows/` 管理独立 Node runtime 产物。上游 package.json、bun.lock、Bun 二进制发布链完全不变。node-pty 的 win32-x64 预编译模块随包提供，安装时不编译原生模块。
+- `windows/` 管理独立 Node runtime 产物。保留上游依赖图、bun.lock 和 Bun 二进制发布链；package.json 的构建命令仅将 chmod 替换为跨平台 Node 权限脚本。node-pty 的 win32-x64 预编译模块随包提供，安装时不编译原生模块。
 - 安装器验证文件 SHA-256 清单、Node >=22.13、实际 CLI 版本和真实 ConPTY；通过后复制到不可变版本目录，原子替换 `active.json`。失败保留入口。候选包可重复验证；同一版本号不同内容会拒绝安装。
 - `botmux upgrade` 在 Windows 明确引导到此安装器，避免意外安装不含 Windows 运行时的官方 npm 元包。
 
@@ -57,7 +57,7 @@ node windows/from-source.mjs --bun 'C:\Tools\Bun\bun.exe' --root 'D:\Apps\Botmux
 
 入口会拒绝错误的 Bun 版本、未提交的源码、源码 ZIP、Git worktree，以及共享依赖的符号链接或目录联接。修改源码后先提交，保证运行包可以追溯到具体提交；从远端获取时应选择包含 Windows 适配的分支。当前上游官方分支本身不包含这个安装入口。
 
-该版本的 Windows 终端依赖提供预编译二进制，无需 Visual Studio C++ 工具或 Python。Bun 自带 shell 执行上游构建中的 cp/chmod，调用者可使用 PowerShell，无需 Git Bash 的 Unix 命令。入口跳过 Electron 桌面程序下载；它安装的是 BotMux daemon/CLI 运行版。未来更换原生依赖版本时，应重新核验这一环境要求。
+该版本的 Windows 终端依赖提供预编译二进制，无需 Visual Studio C++ 工具或 Python。Bun 自带 shell 处理构建中的 cp，可执行权限步骤由跨平台 Node 脚本处理，调用者可使用 PowerShell，无需 Git Bash 的 Unix 命令。入口跳过 Electron 桌面程序下载；它安装的是 BotMux daemon/CLI 运行版。未来更换原生依赖版本时，应重新核验这一环境要求。
 
 ## Linux 构建 Windows 运行包
 
