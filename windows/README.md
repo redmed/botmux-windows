@@ -14,7 +14,7 @@
 
 这里不是能无条件套在任意上游上的插件。兼容适配仍需少量核心接入点；每次上游升级必须重建并通过 Windows 验证。长期可将 host 适配提交上游，再评估与其发布链一致的 `botmux-win32-x64` Bun 二进制。
 
-## Windows 本机从源码安装（win.4 起）
+## Windows 本机从源码安装
 
 这条流程在 Windows 内完成依赖安装、源码编译、运行目录生成和安装，不需要另一台 Linux，也不需要先发布 npm 包。使用 Windows 分支的独立 Git clone；不要对运行中的源码目录或共享 node_modules 的 worktree 执行安装。
 
@@ -33,7 +33,7 @@
 使用 PowerShell 从维护仓库克隆对应的 **Windows 派生分支**，再进入源码根目录执行：
 
 ```powershell
-git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.29.0 https://github.com/redmed/botmux-windows.git
+git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.30.0 https://github.com/redmed/botmux-windows.git
 Set-Location botmux-windows
 node windows/from-source.mjs --check
 node windows/from-source.mjs
