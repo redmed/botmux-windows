@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [ValidatePattern('^\d+\.\d+\.\d+-win\.\d+$')]
-  [string]$Version = '3.30.0-win.2',
+  [string]$Version = '3.30.0-win.3',
   [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
   [string]$Repository = 'redmed/botmux-windows',
   [string]$InstallRoot = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'BotmuxWindows'),
@@ -14,10 +14,28 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+if ($PSVersionTable.PSVersion -lt [Version]'5.1') {
+  throw "PowerShell 5.1 or newer is required; found $($PSVersionTable.PSVersion)."
+}
+
 function Invoke-Checked([string]$Program, [string[]]$Arguments, [string]$Description) {
   & $Program @Arguments
   if ($LASTEXITCODE -ne 0) {
     throw "$Description failed with exit code $LASTEXITCODE"
+  }
+}
+
+function Save-RemoteFile([string]$Uri, [string]$Destination, [string]$Description) {
+  $curlCommand = Get-Command curl.exe -ErrorAction SilentlyContinue
+  if ($curlCommand) {
+    Invoke-Checked $curlCommand.Source @('--fail', '--location', '--silent', '--show-error', '--output', $Destination, $Uri) $Description
+    return
+  }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination
+  } catch {
+    throw "${Description} failed: $($_.Exception.Message)"
   }
 }
 
@@ -54,8 +72,11 @@ namespace BotMux {
   }
 }
 
-if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitOperatingSystem) {
-  throw 'This installer supports Windows 10/11 x64 only.'
+if ($env:OS -ne 'Windows_NT' -or [Environment]::OSVersion.Version.Major -lt 10) {
+  throw "Windows 10/11 is required; found $([Environment]::OSVersion.Version)."
+}
+if (-not [Environment]::Is64BitOperatingSystem) {
+  throw 'A Windows x64 operating system is required.'
 }
 
 $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -76,13 +97,14 @@ if ($LASTEXITCODE -ne 0 -or $nodeArch -ne 'x64') {
   throw "A Windows x64 Node.js runtime is required; found architecture '$nodeArch'."
 }
 
-$curlCommand = Get-Command curl.exe -ErrorAction SilentlyContinue
-if (-not $curlCommand) { throw 'curl.exe is required (included with current Windows 10/11).' }
-$tarPath = Join-Path $env:SystemRoot 'System32\tar.exe'
-if (-not (Test-Path -LiteralPath $tarPath)) { throw "Windows tar.exe was not found at $tarPath" }
+$systemTar = Join-Path $env:SystemRoot 'System32\tar.exe'
+$expandArchive = Get-Command Expand-Archive -ErrorAction SilentlyContinue
+if (-not (Test-Path -LiteralPath $systemTar) -and -not $expandArchive) {
+  throw 'Package extraction requires either Windows tar.exe or PowerShell Expand-Archive.'
+}
 
 $tag = "windows-v$Version"
-$asset = "botmux-windows-x64-$Version.tgz"
+$asset = "botmux-windows-x64-$Version.zip"
 $releaseBase = "https://github.com/$Repository/releases/download/$tag"
 if (-not $ArchiveUrl) { $ArchiveUrl = "$releaseBase/$asset" }
 if (-not $ChecksumUrl) { $ChecksumUrl = "$releaseBase/$asset.sha256" }
@@ -96,8 +118,8 @@ $installedCommand = Join-Path $InstallRoot 'bin\botmux.cmd'
 try {
   New-Item -ItemType Directory -Force -Path $candidate | Out-Null
   Write-Host "Downloading BotMux $Version for Windows x64..."
-  Invoke-Checked $curlCommand.Source @('--fail', '--location', '--silent', '--show-error', '--output', $archive, $ArchiveUrl) 'Package download'
-  Invoke-Checked $curlCommand.Source @('--fail', '--location', '--silent', '--show-error', '--output', $checksum, $ChecksumUrl) 'Checksum download'
+  Save-RemoteFile $ArchiveUrl $archive 'Package download'
+  Save-RemoteFile $ChecksumUrl $checksum 'Checksum download'
 
   $checksumText = Get-Content -Raw -LiteralPath $checksum
   $match = [regex]::Match($checksumText, '(?i)\b[0-9a-f]{64}\b')
@@ -107,7 +129,11 @@ try {
   if ($actual -ne $expected) { throw "Package SHA-256 mismatch: expected $expected, got $actual" }
   Write-Host "SHA-256 verified: $actual"
 
-  Invoke-Checked $tarPath @('-xzf', $archive, '-C', $candidate) 'Package extraction'
+  if (Test-Path -LiteralPath $systemTar) {
+    Invoke-Checked $systemTar @('-xf', $archive, '-C', $candidate) 'Package extraction'
+  } else {
+    Expand-Archive -LiteralPath $archive -DestinationPath $candidate -Force
+  }
   $manifestPath = Join-Path $candidate 'windows-manifest.json'
   if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'The downloaded archive is missing windows-manifest.json.' }
   $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json

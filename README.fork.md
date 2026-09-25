@@ -21,7 +21,13 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 | Out-String | Invoke-Expression
 ```
 
-这相当于 Unix 上的 `curl | sh`，但原生 Windows 使用 PowerShell。希望先审阅脚本时，可改用：
+这相当于 Unix 上的 `curl | sh`，但原生 Windows 使用 PowerShell。如果系统没有 `curl.exe`，可改用：
+
+```powershell
+(Invoke-WebRequest -UseBasicParsing https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1).Content | Invoke-Expression
+```
+
+安装脚本下载运行包时也会在 curl 不存在时自动回退到 `Invoke-WebRequest`。Release 使用 Windows 原生 ZIP 和 PowerShell 自带的 `Expand-Archive`，不依赖 `tar.exe`。希望先审阅脚本时，可改用：
 
 ```powershell
 $installer = Join-Path $env:TEMP 'botmux-install.ps1'
@@ -31,7 +37,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 
 脚本从本 Fork 的 GitHub Release 下载已经编译好的 Windows x64 运行包及 SHA-256，完成两层完整性校验，安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，并把其 `bin` 目录加入用户 PATH。首次安装后新开 PowerShell，运行 `botmux setup` 和 `botmux start`。
 
-升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条命令增加 `-Version 3.30.0-win.2`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
+安装器会预检 Windows 10/11 x64、PowerShell 5.1+、Node.js 22.13.0+ 和 x64 Node 架构，并在安装阶段验证 CLI 与真实 ConPTY。预编译安装不需要 Git、Bun、Python 或 Visual Studio；Agent CLI 的安装与登录、飞书凭据配置仍由用户在安装后按实际选择完成。
+
+升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条命令增加 `-Version 3.30.0-win.3`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
 
 ## 在 Windows 上从源码构建安装
 
