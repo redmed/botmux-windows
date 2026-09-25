@@ -1,11 +1,46 @@
 # Windows native 候选版验证记录
 
-验证日期：2026-09-25。当前版本：`3.29.0-win.3`。
+验证日期：2026-09-25。当前版本：`3.29.0-win.4`。
 
 - 上游：`deepcoldy/botmux`，tag `v3.29.0`，commit `7fab8e0322ecc0ab05e89ddf9d022adbf409ec0d`。
-- 运行包源码：`72ee5e93015664b751564b3fa58a913e15496c4f`；源码无未提交修改时打包。
+- 运行包源码：`150299b952869ac5aa3f67794c49db8dd0f3880e`；源码无未提交修改时打包。
 - Runtime build ID：`81cf1545481f9072d72f1c3ebe820e7e53f4977cda8023f279e3fa31c51e2ac3`。
-- `windows-native-win3.tgz`：37,504,194 bytes，SHA-256 `788d38a1d26eafbfd1338f9f490fb5edca24928d388a4322dc889c09f65dc2b1`。
+- `windows-native-win4.tgz`：37,260,273 bytes，SHA-256 `c323e34ce2684506f22b64f3f7161ec4037f7c4554e4ee9b6a77df743143989d`（Windows 本机生成）。
+
+## win.4 Windows 本机源码构建
+
+构建主机：Windows 10 x64 build 19045，Git for Windows 2.55.0，Node 22.23.3，Bun 1.4.2。通过 SSH 从 Linux 控制 Windows；Git 获取上游源码、安装 npm 依赖、TypeScript 编译、前端 bundle、运行目录生成、压缩与安装均由 Windows 原生进程执行，没有传入 Linux 的 dist 或 node_modules。
+
+首次完整构建在源码编译和 Dashboard bundle 后失败，原因是上游 `chmod +x` 依赖外部 Unix 命令。修复将这一条构建命令替换为 `scripts/mark-cli-executable.mjs`：Windows 不设置 POSIX 执行位，Linux 保留原有 `chmod +x` 的语义。Bun shell 已能执行 cp，无需复刻另一套构建顺序。
+
+新增源码入口 `windows/from-source.mjs`，串联环境检查、frozen install、完整上游 build、运行目录生成和已有安装器。实际运行的 PATH 仅含 Node、Bun、Git 的 cmd 入口和 Windows 系统目录，排除了 Git Bash 的 usr/bin。依赖安装使用 node-pty 的 Windows 预编译模块，没有触发 C++ 本机编译；Electron 桌面程序下载已跳过。
+
+| 项目 | win.4 实测结果 |
+| --- | --- |
+| Windows 首次 frozen install | 620 个依赖安装成功，约 41 秒 |
+| 单入口完整构建安装 | exit 0；03:08:28Z 至 03:11:35Z，约 3 分 6 秒；源码依赖已有缓存，运行包依赖安装约 10.6 秒 |
+| 完整上游 build | 源码、脚本、test mocks 类型检查，Dashboard bundle、产物审计和嵌入资源审计均通过 |
+| Windows / Linux 针对性回归 | 3 个文件、29 项分别在两平台通过 |
+| POSIX 权限语义 | 将文件模式 0640 改为 0751，保留原读写权限并增加执行位 |
+| 前置检查 | 正确环境通过；传入错误 Bun 可执行文件时在依赖安装前拒绝 |
+| 来源与完整性 | 6,851 个清单文件；源码提交 150299b，源码 diff 为空；构建后 Git 工作区干净 |
+| Node 22.23.3 / 24.21.0 | 从本机源码产生并安装的 win.4 CLI、argv、ConPTY 和进程树检查均通过 |
+| 完整 Windows worker | 本机安装的 win.4 fresh 两轮，再新建 worker 恢复同一原生 thread，恰好 3 个 final_output、每代 1 个开场确认、0 个 user_notify，自有进程全部退出 |
+| 恢复输入确认 | 8,570 ms，低于 30 秒门槛 |
+
+worker 实测原生 thread：`01a0d68c-ed50-7210-8a99-1483b1be18d3`；证据目录：`C:\Users\qiaogang\AppData\Local\Temp\botmux-worker-rpc-hmh3qc`。源码、依赖和候选目录合计 767,427,913 bytes；类型检查时观察到单个 Node 进程约 2.5 GB 内存。环境建议与 Windows 获取源码、构建安装命令见 `windows/README.md`。
+
+独立安装目录为 `installed-native with spaces/releases/3.29.0-win.4`，随后把同一 Windows 产物安装到现有测试实例的 `installed-rpc with spaces`，previous 保留 win.3。安装前确认两个已有会话均无运行中 turn，安装过程中 bots.json 哈希保持一致。
+
+win.4 飞书验收通过。`03:16:27.959Z` 收到请求，`03:16:32.758Z` 恢复原 native thread，`03:16:37.065Z` 提交输入，约 9.1 秒完成恢复输入提交。最终消息 `om_x100b646a35b180a4b324d3ae0c2885a` 于 `03:17:12.005Z` 可见，正文恰好出现一次：
+
+> WIN4-NATIVE 本机编译、中文、恢复、正常；上一轮：WIN3-NEXT。
+
+原 BotMux session 和原 native thread 均未改变；RPC 读取确认共 6 条输入、6 个 completed turns，win.4 本轮只新增 1 条，未重放前五条。恢复输入包含完整 daemon 原输入，user_message 部分逐字相等。冷启动时仍出现一次上游运输确认等待提示，后续正常提交，该提示未被作为失败或重复计数。
+
+安装入口随后补充了 npm 安装 Bun 的自动发现（源码提交 b35a3cc）。在 Windows 的独立 npm 全局前缀实际安装 `bun@1.4.2` 后，PATH 上只有 bun.cmd/bun.ps1，没有 bun.exe；旧入口检查失败，新入口正确定位 npm 包内的原生 exe 并通过环境检查，包含空格的路径也通过。本项只改变源码入口的工具定位，没有改变已构建的 win.4 运行包；完整构建安装记录对应 150299b，运行包来源也保持该提交。
+
+GitHub Actions 已新增 Windows 本机完整构建安装任务，当前只验证了本地和 dev-win，尚未运行远端 CI。原 Windows 运行时语义未因本次构建入口改变，Runtime build ID 与 win.3 相同。
 
 ## win.2 修复与验证
 
@@ -83,6 +118,6 @@ win.1 的标准构建、128 项相关回归和两项 POSIX PTY smoke 通过；Wi
 
 ## 维护边界
 
-安装和上游同步逻辑集中在 `windows/`，平台规则集中在 `src/host/runtime.ts`。保留上游 `package.json`、`bun.lock`、官方发布链。RPC 使用上游引擎和消息状态机，不复制另一套实现。升级时在独立 checkout 重放补丁、重建，并重新运行 Windows smoke 和认证输入验证；不能保证零冲突。
+安装和上游同步逻辑集中在 `windows/`，平台规则集中在 `src/host/runtime.ts`。保留上游依赖图、`bun.lock` 和官方发布链；`package.json` 构建命令仅把外部 chmod 换成跨平台 Node 脚本。RPC 使用上游引擎和消息状态机，不复制另一套实现。升级时在独立 checkout 重放补丁、重建，并重新运行 Windows smoke 和认证输入验证；不能保证零冲突。
 
 node-pty 1.1.0 退出释放涉及其内部 conout worker，未来升级必须重点复核。PTY 不保证 daemon 重启时终端进程存活，依赖原生 thread resume。Windows 文件沙盒、其它 CLI、Windows 11/ARM64、开机自启未列为通过。手动 GitHub Actions 已提供，尚未触发远端 CI。源码未 push，运行包未发布到 npm。
