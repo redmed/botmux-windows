@@ -1,13 +1,33 @@
 # Windows native 候选版验证记录
 
-验证日期：2026-09-25。当前版本：`3.29.0-win.4`。
+验证日期：2026-09-25。当前候选版本：`3.30.0-win.1`。
+
+- 上游：`deepcoldy/botmux`，tag `v3.30.0`，commit `79e75b14ffbb128ea83b70c43d51354297171bc6`；该提交同时是验证时的官方 `master`。
+- Windows 源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
+- Runtime build ID：`84dadcb57e8a9dd057ecaade86e7df7c4e7bcf9f58c342a7af8137b88ad9d417`。
+
+## v3.30.0-win.1 上游同步与源码构建
+
+Fork 的 `master` 与官方 `master` 均为 `79e75b14ffbb128ea83b70c43d51354297171bc6`，无需产生同步提交。旧的 `windows/native-v3.29.0` 保留不改；13 个 Windows 提交 rebase 到官方 `v3.30.0` 后形成 `windows/native-v3.30.0`。冲突仅涉及 `src/cli.ts` 和 `package.json`：前者同时保留官方新版 update/upgrade 目标解析与 Windows 安装器保护，后者同时保留官方新增的 Pi turn-boundary 生成步骤与跨平台 CLI 权限脚本。
+
+| 项目 | v3.30.0-win.1 实测结果 |
+| --- | --- |
+| Linux 完整构建 | Bun 1.4.2 frozen install、源码/脚本/test mocks 类型检查、Dashboard bundle、产物和嵌入资源审计通过 |
+| Linux 针对性回归 | 8 个文件、80 项通过 |
+| GitHub 来源 | Windows 通过 HTTPS 从 `redmed/botmux-windows` 干净克隆 `windows/native-v3.30.0`；commit、branch、origin 和工作区清洁状态逐项核对 |
+| Windows 本机构建安装 | Windows 10 x64、Git 2.55.0、Node 22.23.3、Bun 1.4.2；620 个依赖安装成功，完整构建、staging、清单校验和隔离安装 exit 0，共约 3 分 39 秒 |
+| Windows 专项回归 | 3 个文件、29 项通过 |
+| Node 22.23.3 / 24.21.0 | 安装产物的 CLI、argv、ConPTY 和进程树检查均通过 |
+| 安装隔离 | 安装到新的 `installed github 3.30.0` 目录，current 为 `3.30.0-win.1`、previous 为空；未替换或重启既有飞书测试实例 |
+
+本轮证明 Fork 当前分支可以只依赖 Windows 完成 clone、依赖安装、编译、运行包生成和安装。由于本次目标是上游同步与构建兼容性，未重新运行真实模型 worker 和飞书端到端；上一版相关验收记录保留如下，不能冒充为 `v3.30.0-win.1` 的新结果。
+
+## win.4 Windows 本机源码构建（v3.29.0 历史）
 
 - 上游：`deepcoldy/botmux`，tag `v3.29.0`，commit `7fab8e0322ecc0ab05e89ddf9d022adbf409ec0d`。
 - 运行包源码：`150299b952869ac5aa3f67794c49db8dd0f3880e`；源码无未提交修改时打包。
 - Runtime build ID：`81cf1545481f9072d72f1c3ebe820e7e53f4977cda8023f279e3fa31c51e2ac3`。
 - `windows-native-win4.tgz`：37,260,273 bytes，SHA-256 `c323e34ce2684506f22b64f3f7161ec4037f7c4554e4ee9b6a77df743143989d`（Windows 本机生成）。
-
-## win.4 Windows 本机源码构建
 
 构建主机：Windows 10 x64 build 19045，Git for Windows 2.55.0，Node 22.23.3，Bun 1.4.2。通过 SSH 从 Linux 控制 Windows；Git 获取上游源码、安装 npm 依赖、TypeScript 编译、前端 bundle、运行目录生成、压缩与安装均由 Windows 原生进程执行，没有传入 Linux 的 dist 或 node_modules。
 
