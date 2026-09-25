@@ -53,3 +53,10 @@ it('refuses activation while a fleet process is alive', async () => {
   writeFileSync(join(config, 'fleet-state.json'), JSON.stringify({ supervisorPid: process.pid }));
   await expect(activate(root, candidate('3.29.0-win.1'), config, process.execPath, () => {})).rejects.toThrow('Stop the running');
 });
+it('keeps the release bootstrap pinned to the declared Windows version', () => {
+  const release = JSON.parse(readFileSync(join(process.cwd(), 'windows/release.json'), 'utf8'));
+  const installer = readFileSync(join(process.cwd(), 'windows/install.ps1'), 'utf8');
+  expect(installer).toContain(`[string]$Version = '${release.version}'`);
+  expect(installer).toContain('releases/download/$tag');
+  expect(installer).toContain('Get-FileHash -Algorithm SHA256');
+});
