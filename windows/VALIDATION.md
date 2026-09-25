@@ -3,7 +3,8 @@
 验证日期：2026-09-25。当前候选版本：`3.30.0-win.1`。
 
 - 上游：`deepcoldy/botmux`，tag `v3.30.0`，commit `79e75b14ffbb128ea83b70c43d51354297171bc6`；该提交同时是验证时的官方 `master`。
-- Windows 源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
+- Windows 本机构建源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
+- Linux 交叉构建源码：`0dec2089b7d53f11b19308ef9ec7fd5efbff697f`；构建前后工作区均干净。
 - Runtime build ID：`84dadcb57e8a9dd057ecaade86e7df7c4e7bcf9f58c342a7af8137b88ad9d417`。
 
 ## v3.30.0-win.1 上游同步与源码构建
@@ -19,8 +20,22 @@ Fork 的 `master` 与官方 `master` 均为 `79e75b14ffbb128ea83b70c43d513542971
 | Windows 专项回归 | 3 个文件、29 项通过 |
 | Node 22.23.3 / 24.21.0 | 安装产物的 CLI、argv、ConPTY 和进程树检查均通过 |
 | 安装隔离 | 安装到新的 `installed github 3.30.0` 目录，current 为 `3.30.0-win.1`、previous 为空；未替换或重启既有飞书测试实例 |
+| Linux 产物跨到 Windows | 同一个 Linux 归档在 Windows 校验、安装、ConPTY、supervisor/daemon/dashboard 进程路径和真实飞书回复全部通过 |
 
-本轮证明 Fork 当前分支可以只依赖 Windows 完成 clone、依赖安装、编译、运行包生成和安装。由于本次目标是上游同步与构建兼容性，未重新运行真实模型 worker 和飞书端到端；上一版相关验收记录保留如下，不能冒充为 `v3.30.0-win.1` 的新结果。
+本轮证明 Fork 当前分支既可以只依赖 Windows 完成 clone、依赖安装、编译、运行包生成和安装，也可以在 Linux 生成 Windows 运行包，再交给 Windows 直接安装运行。上一版相关验收记录保留如下。
+
+## v3.30.0-win.1 Linux 构建、Windows 运行（2026-09-26）
+
+本项严格验证的是**同一个 Linux 产物**，不是 Linux 和 Windows 分别构建成功：
+
+- Linux 使用 Bun 1.4.2 对提交 `0dec2089b7d53f11b19308ef9ec7fd5efbff697f` 完成 frozen install、完整 build 和 `windows/build.mjs` 打包；构建脚本显式安装 `win32-x64` 生产依赖，只保留 Windows ConPTY 预编译模块。
+- 归档 `windows-native-linux-0dec2089.tgz` 为 37,687,151 bytes，Linux SHA-256 为 `8eb89cb29fd8b67004c4064c69f3013ec71569a01d0c6dc36073e73fb459a681`；传到 Windows 后重新计算的文件大小和 SHA-256 完全一致。
+- 清单为 `platform=win32-x64`、6,893 个文件、Runtime build ID `84dadcb57e8a9dd057ecaade86e7df7c4e7bcf9f58c342a7af8137b88ad9d417`。Windows 安装器对候选目录和复制后的 release 各做一次逐文件哈希校验，并在新的 `botmux-linux-package-validation\install` 根目录激活，未复用已有同版本 release。
+- 安装探针返回 `version=3.30.0-win.1`、Node 22.23.3、`pty=true`；`conpty.node` 为 312,320 bytes，`conpty_console_list.node` 为 134,656 bytes。CLI 版本检查通过，supervisor、daemon 和 dashboard 的命令行均明确指向该隔离安装目录。
+- 切换前通过 TraeX app-server RPC 读取现有唯一会话，确认 1 个 completed turn、`running=0`，随后才停止用户级全局实例。跨构建实例使用独立 BotMux profile、Dashboard 端口 17891、daemon IPC 基准端口 17950，复用同一机器人配置和当前用户 TraeX 认证。
+- 群内向 Windows 测试机器人发送唯一标记后，跨构建实例实际回复 `LINUX-CROSSBUILD-330-OK`。随后停止隔离实例，确认其进程全部退出，并恢复 `C:\Users\qiaogang\AppData\Local\BotmuxWindows`；恢复后的正式实例状态为 supervisor、bot worker、dashboard 全部 online，进程路径均回到用户级全局 release，并再次实际回复 `GLOBAL-RESTORE-330-OK`。
+
+结论：当前 BotMux Windows Fork 不要求用户拥有另一台 Linux，也不要求 Windows 产物必须在 Windows 编译。可采用“Linux/CI 统一交叉构建，Windows 实机验收，用户直接下载已验收包”的发布链路；Windows 本机构建仍保留为无需 Linux 的源码安装方案。Windows 原生模块、进程管理、PATH、ConPTY 和飞书 worker 行为不能仅凭 Linux 构建成功判定，发布前仍需真实 Windows 验收。
 
 ## win.4 Windows 本机源码构建（v3.29.0 历史）
 
