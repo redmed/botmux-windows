@@ -14,7 +14,52 @@
 
 这里不是能无条件套在任意上游上的插件。兼容适配仍需少量核心接入点；每次上游升级必须重建并通过 Windows 验证。长期可将 host 适配提交上游，再评估与其发布链一致的 `botmux-win32-x64` Bun 二进制。
 
-## 构建
+## Windows 本机从源码安装（win.4 起）
+
+这条流程在 Windows 内完成依赖安装、源码编译、运行目录生成和安装，不需要另一台 Linux，也不需要先发布 npm 包。使用 Windows 分支的独立 Git clone；不要对运行中的源码目录或共享 node_modules 的 worktree 执行安装。
+
+准备以下环境：
+
+| 环境 | 要求 |
+| --- | --- |
+| Windows | x64；实测机器为 Windows 10 build 19045 |
+| Node.js | >=22.13；建议使用受支持的 22/24 LTS，包含 npm |
+| Git for Windows | git.exe 可在 PATH 中找到；用于获取源码、校验版本及后续同步 |
+| Bun | 固定为 1.4.2；可用 `npm install -g bun@1.4.2` 安装，安装后新开终端 |
+| 网络 | 能访问源码仓库与 npm 依赖源；按本机网络设置代理 |
+
+使用 PowerShell 进入 **Windows 派生分支**的源码根目录，执行：
+
+```powershell
+node windows/from-source.mjs --check
+node windows/from-source.mjs
+```
+
+第一条仅检查环境与源码状态；第二条依次执行 frozen install、原有完整上游 build、Windows 运行目录打包，以及 `manage.mjs install` 校验安装。默认安装位置为 `$env:LOCALAPPDATA\BotmuxWindows`。已存在的 fleet 必须先停止，安装器才允许激活新版本；构建过程本身不会停止或切换正在运行的实例。
+
+安装完成后，配置并启动：
+
+```powershell
+& "$env:LOCALAPPDATA\BotmuxWindows\bin\botmux.cmd" setup
+& "$env:LOCALAPPDATA\BotmuxWindows\bin\botmux.cmd" start
+```
+
+TraeX 等 Agent CLI 仍需单独安装和登录，机器人凭据仍需配置；编译成功不代表这两项已完成。Windows TraeX 的 RPC 设置见下文。入口不修改系统级环境、不自动启动服务，也不修改机器上的其它 Node/Bun 安装。
+
+可选参数：
+
+```powershell
+# 只构建，产物留在 build/windows-native，不激活安装
+node windows/from-source.mjs --build-only
+# 指定 Bun 和安装位置，均支持路径中的空格
+node windows/from-source.mjs --bun 'C:\Tools\Bun\bun.exe' --root 'D:\Apps\Botmux Windows'
+```
+
+入口会拒绝错误的 Bun 版本、未提交的源码、源码 ZIP、Git worktree，以及共享依赖的符号链接或目录联接。修改源码后先提交，保证运行包可以追溯到具体提交；从远端获取时应选择包含 Windows 适配的分支。当前上游官方分支本身不包含这个安装入口。
+
+该版本的 Windows 终端依赖提供预编译二进制，无需 Visual Studio C++ 工具或 Python。Bun 自带 shell 执行上游构建中的 cp/chmod，调用者可使用 PowerShell，无需 Git Bash 的 Unix 命令。入口跳过 Electron 桌面程序下载；它安装的是 BotMux daemon/CLI 运行版。未来更换原生依赖版本时，应重新核验这一环境要求。
+
+## Linux 构建 Windows 运行包
 
 在独立 Linux checkout 使用 Bun 1.4.2，Node >=22.13：
 
@@ -67,7 +112,7 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 
 脚本 fetch 指定 ref，在**新 checkout** 中把 Windows 提交序列 rebase 到新上游，列出上游也改动过的接入文件，并更新新目录的 release.json。它不改变当前源码分支、已安装程序或运行服务。冲突留在新目录中供修复，不能自动“取我方”解决。然后在新 checkout 独立安装锁定依赖、完整构建、运行回归和 Windows smoke，并提交新的基线记录。清洁 rebase 不代表运行兼容。
 
-`.github/workflows/windows-native.yml` 是手动候选流水线：Linux 构建 + Windows Node 22/24 安装/ConPTY 矩阵，产出 artifact，不向 npm 发布、不改生产。`release.json` 中的版本须与新的上游一致；不要用 0.0.0 标记可交付包。
+`.github/workflows/windows-native.yml` 是手动候选流水线：保留 Linux 构建 + Windows Node 22/24 安装/ConPTY 矩阵，另加 Windows 本机从源码完整构建安装任务，分别产出 artifact，不向 npm 发布、不改生产。`release.json` 中的版本须与新的上游一致；不要用 0.0.0 标记可交付包。
 
 ## 测试范围和限制
 
