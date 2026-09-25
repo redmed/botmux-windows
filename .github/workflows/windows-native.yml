@@ -4,6 +4,28 @@ on:
 permissions:
   contents: read
 jobs:
+  native-source:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - shell: pwsh
+        run: |
+          node windows/from-source.mjs --root "$env:RUNNER_TEMP/BotMux source installed"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          bun run test -- test/windows/
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:SystemRoot/System32/tar.exe" -czf "$env:RUNNER_TEMP/windows-native-from-source.tgz" -C build/windows-native .
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-from-source
+          path: ${{ runner.temp }}/windows-native-from-source.tgz
   build:
     runs-on: ubuntu-latest
     steps:
