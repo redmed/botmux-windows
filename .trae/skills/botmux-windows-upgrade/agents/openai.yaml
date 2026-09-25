@@ -1,0 +1,4 @@
+interface:
+  display_name: "BotMux Windows Upgrade"
+  short_description: "同步、验证并发布 BotMux Windows 版本"
+  default_prompt: "Use $botmux-windows-upgrade to prepare, validate, and publish the next BotMux Windows release."

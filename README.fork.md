@@ -81,6 +81,12 @@ Agent CLI 仍需单独安装和登录，飞书机器人凭据也需按上游流�
 
 ## 跟进官方升级
 
+### 分支职责
+
+- `master` 只镜像官方 `deepcoldy/botmux` 的 `master`，不合入 Windows 专属提交；这样 GitHub 的 Fork 同步和上游差异始终清晰。
+- `windows/native-vX.Y.Z` 保存对应官方版本的 Windows 适配、验证记录和 `X.Y.Z-win.N` 发布提交。修复同一官方版本时继续在该分支递增 `win.N`；升级官方版本时新建下一条版本分支。
+- 不另建“Windows Master”。普通用户以 GitHub Release 的 `latest` 为稳定入口，源码和历史则由版本分支与不可变标签定位。只有确实需要一个长期滚动分支、并接受跨基线强推或额外合并维护时，才另行设计 `windows/latest`。
+
 推荐保留两个远端：
 
 ```sh
@@ -113,6 +119,8 @@ node windows/publish-release.mjs --remote fork --publish
 ```
 
 脚本要求工作区干净、分支名为 `windows/native-vX.Y.Z`、当前提交包含 `release.json` 固定的上游提交，并校验安装脚本中的版本和 Node 下限一致。默认只做检查；只有显式传入 `--publish` 才会推送当前分支和 annotated tag。之后 GitHub Actions 自动在 Linux 构建 ZIP，在 Windows Node 22/24 上执行安装、CLI 和 ConPTY 验证，通过后发布 Release、SHA-256 和安装脚本。
+
+仓库还提供 [`botmux-windows-upgrade` Skill](.trae/skills/botmux-windows-upgrade/SKILL.md)，供 AI 按同一套分支、安全门禁、实机验收和发布流程执行后续升级。可以直接要求：“使用 botmux-windows-upgrade，把 Windows Fork 升级到官方 vX.Y.Z；先准备并验证，暂不发布。”验证通过后再单独授权发布和全局部署。
 
 ## 安装包与发布边界
 

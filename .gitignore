@@ -21,7 +21,12 @@ midscene_run/
 .claude/
 .antigravitycli/
 .cjadk/
-.trae/
+# Local Trae state stays private; publish only the repository upgrade skill.
+.trae/*
+!.trae/skills/
+.trae/skills/*
+!.trae/skills/botmux-windows-upgrade/
+!.trae/skills/botmux-windows-upgrade/**
 # magic / 妙笔发布 token 与 app 映射（含密钥，绝不提交）
 .magic-token
 .magic-apps.json
