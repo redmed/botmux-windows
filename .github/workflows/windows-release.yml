@@ -50,6 +50,7 @@ jobs:
           (cd build/windows-native && zip -qr "../../release/${{ steps.release.outputs.asset }}" .)
           (cd release && sha256sum "${{ steps.release.outputs.asset }}" > "${{ steps.release.outputs.asset }}.sha256")
           cp windows/install.ps1 release/install.ps1
+          cp windows/install-git-bash.sh release/install-git-bash.sh
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release-${{ steps.release.outputs.version }}
@@ -84,6 +85,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($actualVersion.Trim() -ne '${{ needs.build.outputs.version }}') { throw "Unexpected version: $actualVersion" }
           [void][scriptblock]::Create((Get-Content -Raw 'release/install.ps1'))
+          bash -n 'release/install-git-bash.sh'
           $archiveUrl = ([Uri](Resolve-Path "release/$asset").Path).AbsoluteUri
           $checksumUrl = ([Uri](Resolve-Path "release/$asset.sha256").Path).AbsoluteUri
           & 'release/install.ps1' -Version '${{ needs.build.outputs.version }}' -ArchiveUrl $archiveUrl -ChecksumUrl $checksumUrl -InstallRoot "$env:RUNNER_TEMP/BotMux bootstrap installed" -NoPath
@@ -106,6 +108,8 @@ jobs:
             Windows 10/11 x64 native runtime for the redmed/botmux-windows fork.
 
             The archive was built on Linux, verified on Windows with Node.js 22 and 24, and includes a per-file integrity manifest. Node.js >= 22.13.0 is required on the target Windows machine.
+
+            Use install.ps1 from PowerShell or install-git-bash.sh from Git Bash.
           files: release/*
           fail_on_unmatched_files: true
           make_latest: true

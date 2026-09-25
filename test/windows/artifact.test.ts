@@ -56,6 +56,8 @@ it('refuses activation while a fleet process is alive', async () => {
 it('keeps the release bootstrap pinned to the declared Windows version', () => {
   const release = JSON.parse(readFileSync(join(process.cwd(), 'windows/release.json'), 'utf8'));
   const installer = readFileSync(join(process.cwd(), 'windows/install.ps1'), 'utf8');
+  const gitBashInstaller = readFileSync(join(process.cwd(), 'windows/install-git-bash.sh'), 'utf8');
+  const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/windows-release.yml'), 'utf8');
   expect(installer).toContain(`[string]$Version = '${release.version}'`);
   expect(installer).toContain(`[Version]'${release.nodeMinimum}'`);
   expect(installer).toContain('releases/download/$tag');
@@ -63,4 +65,12 @@ it('keeps the release bootstrap pinned to the declared Windows version', () => {
   expect(installer).toContain('Get-Command curl.exe -ErrorAction SilentlyContinue');
   expect(installer).toContain('Invoke-WebRequest -UseBasicParsing');
   expect(installer).toContain('Get-Command Expand-Archive -ErrorAction SilentlyContinue');
+  expect(installer).toContain("Write-Host 'BotMux 安装未完成' -ForegroundColor Red");
+  expect(installer).toContain('请先确认没有正在执行的任务，然后运行 botmux stop');
+  expect(installer).toContain('Remove-NodeWarningLines');
+  expect(gitBashInstaller).toContain('powershell.exe -NoProfile -ExecutionPolicy Bypass -File');
+  expect(gitBashInstaller).toContain('cygpath -w');
+  expect(gitBashInstaller).toContain('chcp.com 65001');
+  expect(gitBashInstaller).toContain('BOTMUX_INSTALLER_URL');
+  expect(releaseWorkflow).toContain('cp windows/install-git-bash.sh release/install-git-bash.sh');
 });
