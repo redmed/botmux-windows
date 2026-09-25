@@ -354,7 +354,7 @@ import {
   bareShellLaunchGuidance,
   settleLaunchComm,
 } from './core/session-discovery.js';
-import { CODEX_RPC_TERMINAL_HYDRATION_DELAYS_MS, RpcEngagementFence, requiresWindowsTraexRpc, WINDOWS_TRAEX_RPC_ERROR, codexRpcEligible, paneRunsRemoteTui, orchestrateCodexRpcInit, rolloutUserTurnMatches, decideStartupDialogAction, shouldQueueInitialPrompt, shouldPreMarkFirstTurn, killAndVerifyPersistentPane, rpcTranscriptIngestBlockedByAwaitingActivation, type EngageOutcome } from './codex-rpc-lifecycle.js';
+import { CODEX_RPC_TERMINAL_HYDRATION_DELAYS_MS, RpcEngagementFence, requiresWindowsTraexRpc, hasReadyWindowsRpcInput, WINDOWS_TRAEX_RPC_ERROR, codexRpcEligible, paneRunsRemoteTui, orchestrateCodexRpcInit, rolloutUserTurnMatches, decideStartupDialogAction, shouldQueueInitialPrompt, shouldPreMarkFirstTurn, killAndVerifyPersistentPane, rpcTranscriptIngestBlockedByAwaitingActivation, type EngageOutcome } from './codex-rpc-lifecycle.js';
 import { delay } from './utils/timing.js';
 import { decideTurnIdleReport } from './utils/turn-idle-report.js';
 import { claudeJsonlPathForSession, resolveClaudeJsonlPath, resolveJsonlFromPid, findOpenClaudeSessionIds, syncClaudeResumeTargetToCwd, resolveShadowedStatusLine, DEFAULT_CLAUDE_DATA_DIR } from './adapters/cli/claude-code.js';
@@ -14582,13 +14582,17 @@ function directRpcTurnBlocksTypeAhead(): boolean {
   );
 }
 
+function windowsRpcInputReady(): boolean {
+  return hasReadyWindowsRpcInput(lastInitConfig ?? undefined, codexRpcEngine?.activeThreadId);
+}
+
 async function flushPending(): Promise<void> {
   // Codex model-migration picker guard (startup only): the single admission
   // point runs before every other guard, so they are all evaluated after its
   // renderer drain; concurrent calls still serialize on isFlushing (no other
   // await before it is set). Nothing below re-reads the screen for the picker.
   if (codexModelMigrationCheckNeeded() && await codexModelMigrationAdmit('write') !== 'proceed') return;
-  if (idleDetector?.isStartupPending()) return;
+  if (idleDetector?.isStartupPending() && !windowsRpcInputReady()) return;
   // destroySession() may be asynchronous while `backend` still references the
   // old CLI. Never let a new flush (including one triggered by the old
   // backend's idle/task-done callback) write across that restart boundary.
@@ -21599,6 +21603,14 @@ async function spawnCli(
   };
   setTimeout(() => releaseFirstPromptTimeout(FIRST_PROMPT_TIMEOUT_MS, false), FIRST_PROMPT_TIMEOUT_MS);
 
+  // An acknowledged Windows RPC engine can accept input before its viewer
+  // draws a composer. This is initialization evidence, not an idle/turn-complete
+  // event: keep lifecycle/authority/ambiguous-delivery gates in flushPending.
+  if (windowsRpcInputReady()) {
+    awaitingFirstPrompt = false;
+    renderer?.markNewTurn();
+  }
+
   // Remote backends (riff / mojo) have no local boot process — the backend is
   // ready immediately after spawn(). The idle detector never fires for them (no
   // PTY output), and the first-prompt timeout only flushes for type-ahead
@@ -21986,7 +21998,7 @@ async function restartCliProcess(
         // A local replacement process can exist before its TUI input box does.
         // Only re-kick a prompt that became ready while the restart fence was
         // still armed; otherwise markPromptReady() owns the first flush.
-        if (isPromptReady) void flushPending();
+        if (isPromptReady || windowsRpcInputReady()) void flushPending();
       }, 500);
     } catch (err) {
       replacementSpawnInProgress = false;
@@ -24885,7 +24897,7 @@ process.on('message', async (raw: unknown) => {
         // for riff (ready immediately) and can also happen when Herdr reports a
         // fast-starting TUI as idle during spawn. Flush again after enqueueing;
         // the ready flag keeps booting/busy backends gated.
-        if (isPromptReady && pendingMessages.length > 0) {
+        if ((isPromptReady || windowsRpcInputReady()) && pendingMessages.length > 0) {
           flushPending();
         }
 
