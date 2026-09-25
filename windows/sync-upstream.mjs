@@ -19,6 +19,7 @@ function git(args, cwd = root) {
 }
 if (git(['status', '--porcelain', '--untracked-files=normal'])) throw new Error('Commit downstream changes before synchronization');
 const old = JSON.parse(readFileSync(join(root, 'windows/release.json'), 'utf8'));
+const baseVersion = version.replace(/-win\.\d+$/, '');
 git(['fetch', 'upstream', ref]);
 const target = git(['rev-parse', 'FETCH_HEAD^{commit}']);
 const touched = git(['diff', '--name-only', old.upstreamCommit, 'HEAD', '--', 'src']);
@@ -29,7 +30,7 @@ git(['remote', 'add', 'upstream', old.upstreamRepository], out);
 // FETCH_HEAD in the source is not a branch and a local clone need not copy
 // its unreachable objects. Fetch the pinned target in the new checkout too.
 git(['fetch', 'upstream', target], out);
-git(['checkout', '-b', `windows/${version}`, git(['rev-parse', 'HEAD'])], out);
+git(['checkout', '-b', `windows/native-v${baseVersion}`, git(['rev-parse', 'HEAD'])], out);
 try {
   git(['rebase', '--onto', target, old.upstreamCommit], out);
 } catch (error) {

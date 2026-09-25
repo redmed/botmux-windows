@@ -172,6 +172,15 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 
 `.github/workflows/windows-native.yml` 是手动候选流水线：保留 Linux 构建 + Windows Node 22/24 安装/ConPTY 矩阵，另加 Windows 本机从源码完整构建安装任务，分别产出 artifact，不向 npm 发布、不改生产。候选验证完成后，以 `windows-vX.Y.Z-win.N` 标签触发 `.github/workflows/windows-release.yml`：流水线在 Linux 构建，在 Windows Node 22/24 上复核安装与 ConPTY，再发布 GitHub Release、SHA-256 和 `install.ps1`。`release.json` 中的版本须与标签一致；不要用 0.0.0 标记可交付包。
 
+提交候选修改后可使用发布助手，默认先做只读预检，确认后再显式发布：
+
+```sh
+node windows/publish-release.mjs
+node windows/publish-release.mjs --remote fork --publish
+```
+
+发布助手校验干净工作区、`windows/native-vX.Y.Z` 分支名、上游 ref/commit、远端分支快进关系、版本和 Node 下限同步，并拒绝覆盖已有远端标签。`--publish` 只推送当前分支和 annotated tag；真正的构建、Windows 双版本验证和 Release 发布仍由 GitHub Actions 在固定环境中完成。若 tag 流水线失败，修复后必须递增 `-win.N`，不要移动已经推送的发布标签。
+
 ## 测试范围和限制
 
 - Native `.exe` 直接传 argv，中文、引号和多行参数不经 cmd 展开。
