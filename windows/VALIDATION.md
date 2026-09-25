@@ -1,11 +1,20 @@
 # Windows native 候选版验证记录
 
-验证日期：2026-09-26。当前发布候选版本：`3.30.0-win.3`。
+验证日期：2026-09-26。当前发布候选版本：`3.30.0-win.4`。
 
 - 上游：`deepcoldy/botmux`，tag `v3.30.0`，commit `79e75b14ffbb128ea83b70c43d51354297171bc6`；该提交同时是验证时的官方 `master`。
 - Windows 本机构建源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
 - Linux 交叉构建源码：`0dec2089b7d53f11b19308ef9ec7fd5efbff697f`；构建前后工作区均干净。
 - Runtime build ID：`84dadcb57e8a9dd057ecaade86e7df7c4e7bcf9f58c342a7af8137b88ad9d417`。
+
+## v3.30.0-win.4 安装失败展示与 Git Bash 入口
+
+- 安装器捕获下载、解压、激活和安装后校验的原生命令输出，过滤已知 Node 实验性警告；失败时不再显示 PowerShell 源码位置、`CategoryInfo` 或 `FullyQualifiedErrorId`，而是在红色区域直接显示中文原因，并用黄色显示处理步骤。
+- 运行中 fleet 的安全边界保持不变：安装器不会自动停止 BotMux。Windows 小型失败夹具稳定触发该保护后，输出为“BotMux 安装未完成”“检测到 BotMux 仍在运行”“先确认任务空闲并运行 `botmux stop`”，同时明确现有程序和用户数据未修改。
+- dev-win 的 Windows PowerShell 5.1 分别以 `& script.ps1`、`Invoke-Expression` 和独立 `powershell.exe -File` 执行失败夹具。三种方式均只有下载/校验进度和四行中文诊断，无 Node 警告与 PowerShell 泛化堆栈；前两种保留 `$LASTEXITCODE=1`，独立进程退出码为 1。UTF-8 文件回读确认中文逐字正确。
+- 新增 `install-git-bash.sh`，只负责检查 Git Bash 环境、下载同一份 `install.ps1` 并调用 Windows PowerShell，不复制安装逻辑。dev-win 的 `MINGW64_NT-10.0-19045` 失败夹具输出为 UTF-8 中文且退出码为 1；新启动的 Git Bash 能从当前用户 PATH 解析 `/c/Users/qiaogang/AppData/Local/BotmuxWindows/bin/botmux`。
+- 修改后的安装器还从公开 Release 下载既有 win.3 ZIP，在独立 HOME 和安装根目录完成归档 SHA-256、逐文件清单、ConPTY、激活和 CLI 版本检查，证明输出捕获没有破坏成功路径。Linux Windows 专项回归为 9 个测试文件、83 项通过；PowerShell 5.1 parser 和 Git Bash `bash -n` 通过。
+- 上述测试均使用临时安装根目录和固定失败夹具或独立 HOME，未停止、替换或修改当前用户全局 BotMux。公开 win.4 Release 和 GitHub Actions 结果在发布后补充。
 
 ## v3.30.0-win.2 / win.3 预编译发布入口
 

@@ -27,6 +27,14 @@ curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download
 (Invoke-WebRequest -UseBasicParsing https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1).Content | Invoke-Expression
 ```
 
+如果当前终端是 Git Bash，不要直接运行包含 `Out-String` / `Invoke-Expression` 的 PowerShell 命令；使用 Git Bash 专用入口：
+
+```bash
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install-git-bash.sh | bash
+```
+
+该入口只负责下载并调用同一份 PowerShell 安装器，不复制安装逻辑。安装完成后新开 Git Bash，即可直接执行小写 `botmux`。
+
 安装脚本下载运行包时也会在 curl 不存在时自动回退到 `Invoke-WebRequest`。Release 使用 Windows 原生 ZIP 和 PowerShell 自带的 `Expand-Archive`，不依赖 `tar.exe`。希望先审阅脚本时，可改用：
 
 ```powershell
@@ -39,7 +47,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 
 安装器会预检 Windows 10/11 x64、PowerShell 5.1+、Node.js 22.13.0+ 和 x64 Node 架构，并在安装阶段验证 CLI 与真实 ConPTY。预编译安装不需要 Git、Bun、Python 或 Visual Studio；Agent CLI 的安装与登录、飞书凭据配置仍由用户在安装后按实际选择完成。
 
-升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条命令增加 `-Version 3.30.0-win.3`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
+升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条 PowerShell 命令增加 `-Version 3.30.0-win.4`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
 
 ## 在 Windows 上从源码构建安装
 

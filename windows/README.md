@@ -24,6 +24,14 @@
 curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 | Out-String | Invoke-Expression
 ```
 
+上面一行包含 PowerShell 的 `Out-String` 和 `Invoke-Expression`，不能直接粘贴到 Git Bash。Git Bash 使用下面的专用入口：
+
+```bash
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install-git-bash.sh | bash
+```
+
+`install-git-bash.sh` 检查 Git Bash、`curl`、`cygpath` 和 `powershell.exe`，把安装器保存到临时文件后交给 Windows PowerShell 执行，并原样返回安装结果。它不复制版本选择、校验或激活逻辑。安装成功后需新开 Git Bash，使更新后的当前用户 PATH 生效；随后可直接运行小写 `botmux`。
+
 这与 Unix 上常见的 `curl | sh` 是同一种入口；原生 Windows 使用 PowerShell，而不是 `/bin/bash`。Windows 10 1803 及之后的常规版本和 Windows 11 通常自带 `curl.exe`。如果系统没有 curl，可使用 PowerShell 自带的下载能力：
 
 ```powershell
@@ -64,7 +72,7 @@ botmux stop
 botmux start
 ```
 
-安装器不会在 fleet 仍存活时强制覆盖版本。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.3`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。脚本本身也作为 Release 附件发布，便于先下载审阅后再运行。
+安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.4`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
 
 ## Windows 本机从源码安装
 
