@@ -1,6 +1,6 @@
 # botmux
 
-> **Windows 原生 Fork：** 当前 `windows/native-v3.29.0` 分支由
+> **Windows 原生 Fork：** 当前 `windows/native-v3.30.0` 分支由
 > [`redmed/botmux-windows`](README.fork.md) 维护，用于在 Windows 10/11 x64
 > 上直接从源码构建和运行 BotMux，不依赖 Linux 或 WSL2。上游原版说明仍保留在下文；
 > Windows 安装、分支策略和同步方式请先阅读 [Fork 说明](README.fork.md)。

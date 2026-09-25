@@ -11,7 +11,7 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 | `master` | 跟踪官方 BotMux | 只用于同步上游，不在这里提交 Windows 改造 |
 | `windows/native-vX.Y.Z` | 对应上游版本的 Windows 原生适配 | Windows 代码、文档和验证记录均提交到这里 |
 
-当前分支以官方 `v3.29.0` 为基线，候选版本和精确上游提交由 [windows/release.json](windows/release.json) 固定。后续升级应从新的官方版本创建新的 `windows/native-vX.Y.Z` 分支，不把旧适配直接合并进 `master`。
+当前分支以官方 `v3.30.0` 为基线，候选版本和精确上游提交由 [windows/release.json](windows/release.json) 固定。后续升级应从新的官方版本创建新的 `windows/native-vX.Y.Z` 分支，不把旧适配直接合并进 `master`。
 
 ## 在 Windows 上从源码构建安装
 
@@ -28,7 +28,7 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 在 PowerShell 中执行：
 
 ```powershell
-git clone --branch windows/native-v3.29.0 https://github.com/redmed/botmux-windows.git
+git clone --branch windows/native-v3.30.0 https://github.com/redmed/botmux-windows.git
 Set-Location botmux-windows
 node windows/from-source.mjs --check
 node windows/from-source.mjs
