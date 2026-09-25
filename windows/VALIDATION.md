@@ -14,7 +14,9 @@
 - dev-win 的 Windows PowerShell 5.1 分别以 `& script.ps1`、`Invoke-Expression` 和独立 `powershell.exe -File` 执行失败夹具。三种方式均只有下载/校验进度和四行中文诊断，无 Node 警告与 PowerShell 泛化堆栈；前两种保留 `$LASTEXITCODE=1`，独立进程退出码为 1。UTF-8 文件回读确认中文逐字正确。
 - 新增 `install-git-bash.sh`，只负责检查 Git Bash 环境、下载同一份 `install.ps1` 并调用 Windows PowerShell，不复制安装逻辑。dev-win 的 `MINGW64_NT-10.0-19045` 失败夹具输出为 UTF-8 中文且退出码为 1；新启动的 Git Bash 能从当前用户 PATH 解析 `/c/Users/qiaogang/AppData/Local/BotmuxWindows/bin/botmux`。
 - 修改后的安装器还从公开 Release 下载既有 win.3 ZIP，在独立 HOME 和安装根目录完成归档 SHA-256、逐文件清单、ConPTY、激活和 CLI 版本检查，证明输出捕获没有破坏成功路径。Linux Windows 专项回归为 9 个测试文件、83 项通过；PowerShell 5.1 parser 和 Git Bash `bash -n` 通过。
-- 上述测试均使用临时安装根目录和固定失败夹具或独立 HOME，未停止、替换或修改当前用户全局 BotMux。公开 win.4 Release 和 GitHub Actions 结果在发布后补充。
+- GitHub Actions run `36171086328` 的 Linux 构建、Windows Node 22/24 双版本验收和发布 job 全部成功。公开 `install.ps1`、`install-git-bash.sh`、win.4 ZIP 和 SHA-256 均可下载，ZIP 校验值为 `c203eef4ed48d95de537e286d40b345a69ac697268cfb181fbebe1b106a103f9`，`latest` 已指向 `windows-v3.30.0-win.4`。
+- 从公开 `latest` 地址实测 PowerShell 一行命令和 Git Bash 一行命令：全局 fleet 运行时，两者均显示相同的简洁中文原因和处理步骤，不出现泛化堆栈；PowerShell 保留 `$LASTEXITCODE=1`，Git Bash 返回 1。随后用公开 Git Bash 入口安装到独立 HOME 和安装根目录，归档、逐文件清单、ConPTY、激活及 CLI 版本检查通过，结果为 `version=3.30.0-win.4`、Node 22.23.3、`pty=true`。
+- 上述测试均使用临时安装根目录和固定失败夹具或独立 HOME，未停止、替换或修改当前用户全局 BotMux。
 
 ## v3.30.0-win.2 / win.3 预编译发布入口
 
