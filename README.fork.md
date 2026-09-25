@@ -13,6 +13,26 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 
 当前分支以官方 `v3.30.0` 为基线，候选版本和精确上游提交由 [windows/release.json](windows/release.json) 固定。后续升级应从新的官方版本创建新的 `windows/native-vX.Y.Z` 分支，不把旧适配直接合并进 `master`。
 
+## 推荐：安装已编译版本
+
+普通 Windows 用户无需下载源码或准备 Bun。预先安装 x64 Node.js 22.13.0 或更高版本，然后在 PowerShell 中执行一行快速安装命令：
+
+```powershell
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 | Out-String | Invoke-Expression
+```
+
+这相当于 Unix 上的 `curl | sh`，但原生 Windows 使用 PowerShell。希望先审阅脚本时，可改用：
+
+```powershell
+$installer = Join-Path $env:TEMP 'botmux-install.ps1'
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 -o $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+```
+
+脚本从本 Fork 的 GitHub Release 下载已经编译好的 Windows x64 运行包及 SHA-256，完成两层完整性校验，安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，并把其 `bin` 目录加入用户 PATH。首次安装后新开 PowerShell，运行 `botmux setup` 和 `botmux start`。
+
+升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条命令增加 `-Version 3.30.0-win.2`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
+
 ## 在 Windows 上从源码构建安装
 
 准备环境：
@@ -81,7 +101,7 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 
 - 普通用户优先使用经过验证的 Windows 运行包，省去本机编译时间；需要审计或自行修改时可直接走上述源码安装流程。
 - `windows/build.mjs` 生成的是完整 portable runtime，不是可交给 `npm install` 的包。
-- 当前 Fork 没有发布 Windows npm 包，也不会替换上游正式发行版；打 tag、发布 npm 或创建 GitHub Release 必须单独评审和授权。
+- 当前 Fork 不发布 Windows npm 包，也不会替换上游正式发行版。Windows 标签 `windows-vX.Y.Z-win.N` 只触发本 Fork 的独立 GitHub Release；流水线在 Linux 构建，并在 Windows Node 22/24 上验证后才公开运行包、SHA-256 和安装脚本。
 - 安装器采用不可变版本目录和 `active.json` 原子切换，并保留上一版本用于回滚；用户的 `.botmux` 配置和会话数据不放进运行包。
 
 ## 当前支持边界

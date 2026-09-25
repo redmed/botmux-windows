@@ -1,0 +1,107 @@
+name: Windows release
+
+on:
+  push:
+    tags:
+      - 'windows-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      asset: ${{ steps.release.outputs.asset }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: release
+        shell: bash
+        run: |
+          version=$(node -p "require('./windows/release.json').version")
+          bun_version=$(node -p "require('./windows/release.json').bunVersion")
+          expected_tag="windows-v${version}"
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match release version ${expected_tag}" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "bun_version=${bun_version}" >> "$GITHUB_OUTPUT"
+          echo "asset=botmux-windows-x64-${version}.tgz" >> "$GITHUB_OUTPUT"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ steps.release.outputs.bun_version }}
+      - run: bun install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: node windows/build.mjs
+      - run: bun run test -- test/windows/ test/executable.test.ts test/resolve-command-shell-parse.test.ts test/pty-backend-launch-shell.test.ts test/log-tail.test.ts test/autostart-standalone-path.test.ts
+      - shell: bash
+        run: |
+          mkdir -p release
+          tar -czf "release/${{ steps.release.outputs.asset }}" -C build/windows-native .
+          (cd release && sha256sum "${{ steps.release.outputs.asset }}" > "${{ steps.release.outputs.asset }}.sha256")
+          cp windows/install.ps1 release/install.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-${{ steps.release.outputs.version }}
+          path: release/
+          if-no-files-found: error
+
+  verify:
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release-${{ needs.build.outputs.version }}
+          path: release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = '${{ needs.build.outputs.asset }}'
+          $expected = ((Get-Content -Raw "release/$asset.sha256") -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash -Algorithm SHA256 "release/$asset").Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "SHA-256 mismatch: $actual != $expected" }
+          New-Item -ItemType Directory 'candidate with spaces' | Out-Null
+          & "$env:SystemRoot/System32/tar.exe" -xzf "release/$asset" -C 'candidate with spaces'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node 'candidate with spaces/windows/manage.mjs' install 'candidate with spaces' --root "$env:RUNNER_TEMP/BotMux installed"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $actualVersion = & "$env:RUNNER_TEMP/BotMux installed/bin/botmux.cmd" --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($actualVersion.Trim() -ne '${{ needs.build.outputs.version }}') { throw "Unexpected version: $actualVersion" }
+          [void][scriptblock]::Create((Get-Content -Raw 'release/install.ps1'))
+
+  publish:
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release-${{ needs.build.outputs.version }}
+          path: release
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: BotMux Windows ${{ needs.build.outputs.version }}
+          body: |
+            Windows 10/11 x64 native runtime for the redmed/botmux-windows fork.
+
+            The archive was built on Linux, verified on Windows with Node.js 22 and 24, and includes a per-file integrity manifest. Node.js >= 22.13.0 is required on the target Windows machine.
+          files: release/*
+          fail_on_unmatched_files: true
+          make_latest: true

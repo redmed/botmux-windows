@@ -14,9 +14,51 @@
 
 这里不是能无条件套在任意上游上的插件。兼容适配仍需少量核心接入点；每次上游升级必须重建并通过 Windows 验证。长期可将 host 适配提交上游，再评估与其发布链一致的 `botmux-win32-x64` Bun 二进制。
 
+## 推荐：下载已编译版本
+
+普通用户推荐使用 GitHub Release 中已经构建并通过 Windows 验证的运行包。这样不需要 Git、Bun、Visual Studio、Python 或另一台 Linux；目标 Windows 只需预先安装 x64 Node.js 22.13.0 或更高版本，以及要接入的 Agent CLI。
+
+在 PowerShell 中快速安装：
+
+```powershell
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 | Out-String | Invoke-Expression
+```
+
+这与 Unix 上常见的 `curl | sh` 是同一种入口；原生 Windows 使用 PowerShell，而不是 `/bin/bash`。如果希望先审阅脚本再执行：
+
+```powershell
+$installer = Join-Path $env:TEMP 'botmux-install.ps1'
+curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 -o $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+```
+
+安装脚本会完成以下工作：
+
+1. 从 `redmed/botmux-windows` 的 GitHub Release 下载 `win32-x64` 完整运行包和独立 SHA-256 文件；
+2. 先校验压缩包整体 SHA-256，再由包内安装器校验 6,000 多个运行文件及真实 ConPTY；
+3. 安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，不写系统级目录；
+4. 幂等地把 `%LOCALAPPDATA%\BotmuxWindows\bin` 加入当前用户 PATH，并通知桌面环境。当前控制台也能立即使用完整路径，新开的控制台可直接执行小写 `botmux`。
+
+首次安装完成后：
+
+```powershell
+botmux setup
+botmux start
+```
+
+升级前先确认没有正在执行的任务并停止当前实例，再重新运行同一组 curl 安装命令，最后启动：
+
+```powershell
+botmux stop
+# 重新运行上面的一行快速安装命令
+botmux start
+```
+
+安装器不会在 fleet 仍存活时强制覆盖版本。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.2`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。脚本本身也作为 Release 附件发布，便于先下载审阅后再运行。
+
 ## Windows 本机从源码安装
 
-这条流程在 Windows 内完成依赖安装、源码编译、运行目录生成和安装，不需要另一台 Linux，也不需要先发布 npm 包。使用 Windows 分支的独立 Git clone；不要对运行中的源码目录或共享 node_modules 的 worktree 执行安装。
+这条流程供需要审计、修改源码或无法使用 Release 的开发者使用。它在 Windows 内完成依赖安装、源码编译、运行目录生成和安装，不需要另一台 Linux，也不需要先发布 npm 包。使用 Windows 分支的独立 Git clone；不要对运行中的源码目录或共享 node_modules 的 worktree 执行安装。
 
 准备以下环境：
 
@@ -118,7 +160,7 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 
 脚本 fetch 指定 ref，在**新 checkout** 中把 Windows 提交序列 rebase 到新上游，列出上游也改动过的接入文件，并更新新目录的 release.json。它不改变当前源码分支、已安装程序或运行服务。冲突留在新目录中供修复，不能自动“取我方”解决。然后在新 checkout 独立安装锁定依赖、完整构建、运行回归和 Windows smoke，并提交新的基线记录。清洁 rebase 不代表运行兼容。
 
-`.github/workflows/windows-native.yml` 是手动候选流水线：保留 Linux 构建 + Windows Node 22/24 安装/ConPTY 矩阵，另加 Windows 本机从源码完整构建安装任务，分别产出 artifact，不向 npm 发布、不改生产。`release.json` 中的版本须与新的上游一致；不要用 0.0.0 标记可交付包。
+`.github/workflows/windows-native.yml` 是手动候选流水线：保留 Linux 构建 + Windows Node 22/24 安装/ConPTY 矩阵，另加 Windows 本机从源码完整构建安装任务，分别产出 artifact，不向 npm 发布、不改生产。候选验证完成后，以 `windows-vX.Y.Z-win.N` 标签触发 `.github/workflows/windows-release.yml`：流水线在 Linux 构建，在 Windows Node 22/24 上复核安装与 ConPTY，再发布 GitHub Release、SHA-256 和 `install.ps1`。`release.json` 中的版本须与标签一致；不要用 0.0.0 标记可交付包。
 
 ## 测试范围和限制
 
