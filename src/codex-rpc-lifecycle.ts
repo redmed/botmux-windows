@@ -157,6 +157,17 @@ export function codexRpcEligible(cfg: InitCfg, runtime: CodexRpcRuntimeGates = {
   );
 }
 
+/** The acknowledged app-server owns input. Its Windows PTY is only a viewer
+ * and may never render the native startup banner, especially on resume. */
+export function hasReadyWindowsRpcInput(
+  cfg: InitCfg | undefined,
+  activeThreadId: string | undefined,
+  platform = process.platform,
+): boolean {
+  return !!cfg && !!activeThreadId && requiresWindowsTraexRpc(cfg, platform)
+    && codexRpcEligible(cfg, { platform });
+}
+
 /** Positive rollout evidence that THIS turn's user message was persisted (P1-1).
  *  Given a thread's drained rollout events, is there a user turn matching the
  *  prompt? session_meta (written at thread/start) is not a `kind:'user'` event,
