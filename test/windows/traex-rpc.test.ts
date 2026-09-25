@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { codexRpcEligible, orchestrateCodexRpcInit, type RpcInitEffects } from '../../src/codex-rpc-lifecycle.js';
+import { codexRpcEligible, hasReadyWindowsRpcInput, orchestrateCodexRpcInit, type RpcInitEffects } from '../../src/codex-rpc-lifecycle.js';
 import type { DaemonToWorker } from '../../src/types.js';
 type Init = Extract<DaemonToWorker, {type: 'init'}>;
 const config = (over: Partial<Init> = {}): Init => ({type:'init',sessionId:'win-rpc',chatId:'chat',rootMessageId:'root',workingDir:'C:/work',cliId:'traex',backendType:'pty',codexRpcInput:true,prompt:'中文、输入',larkAppId:'test',larkAppSecret:'test',...over});
@@ -29,4 +29,20 @@ describe('Windows TraeX RPC input',()=>{
  it('resumes through a fresh engine and queues only the waking prompt',async()=>{
   expect(await orchestrateCodexRpcInit(config({resume:true,cliSessionId:'native-thread'}),effects('resumed'),runtime)).toEqual({engaged:true,queuePrompt:true,abortSpawn:false});
  });
+});
+
+
+describe('Windows RPC initialization evidence', () => {
+  it('requires an engaged native thread, not just an enabled setting', () => {
+    expect(hasReadyWindowsRpcInput(config(), undefined, 'win32')).toBe(false);
+    expect(hasReadyWindowsRpcInput(undefined, 'thread', 'win32')).toBe(false);
+    expect(hasReadyWindowsRpcInput(config(), 'thread', 'win32')).toBe(true);
+    expect(hasReadyWindowsRpcInput(config({ resume: true, prompt: '', cliSessionId: 'thread' }), 'thread', 'win32')).toBe(true);
+  });
+  it('retains platform, CLI, backend and security boundaries', () => {
+    expect(hasReadyWindowsRpcInput(config(), 'thread', 'linux')).toBe(false);
+    for (const over of [{ cliId: 'codex' }, { backendType: 'tmux' }, { codexRpcInput: false }, { sandbox: true }, { disableCliBypass: true }]) {
+      expect(hasReadyWindowsRpcInput(config(over as Partial<Init>), 'thread', 'win32')).toBe(false);
+    }
+  });
 });

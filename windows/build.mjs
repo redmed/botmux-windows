@@ -42,7 +42,7 @@ cpSync(join(root, 'dist'), join(out, 'dist'), {
 });
 cpSync(join(root, 'LICENSE'), join(out, 'LICENSE'));
 mkdirSync(join(out, 'windows'));
-for (const file of ['manage.mjs', 'verify.mjs', 'verify-traex.mjs']) cpSync(join(root, 'windows', file), join(out, 'windows', file));
+for (const file of ['manage.mjs', 'verify.mjs', 'verify-traex.mjs', 'verify-worker.mjs']) cpSync(join(root, 'windows', file), join(out, 'windows', file));
 pkg.version = release.version;
 pkg.engines = { node: `>=${release.nodeMinimum}` };
 delete pkg.devDependencies;
