@@ -69,7 +69,7 @@ try {
     bun: bunVersion, version: release.version, sourceCommit, sourceRoot: root }));
   if (checkOnly) process.exit(0);
   run(bun, ['install', '--frozen-lockfile']);
-  // Bun's own shell supplies cp/chmod on Windows; do not duplicate the upstream recipe.
+  // Reuse the upstream recipe; its executable-bit step uses a portable Node helper.
   run(process.execPath, [join(root, 'windows/build.mjs')]);
   const candidate = join(root, 'build/windows-native');
   if (buildOnly) console.log(`Candidate ready: ${candidate}`);
