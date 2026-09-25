@@ -1,20 +1,21 @@
 # Windows native 候选版验证记录
 
-验证日期：2026-09-26。当前发布候选版本：`3.30.0-win.2`。
+验证日期：2026-09-26。当前发布候选版本：`3.30.0-win.3`。
 
 - 上游：`deepcoldy/botmux`，tag `v3.30.0`，commit `79e75b14ffbb128ea83b70c43d51354297171bc6`；该提交同时是验证时的官方 `master`。
 - Windows 本机构建源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
 - Linux 交叉构建源码：`0dec2089b7d53f11b19308ef9ec7fd5efbff697f`；构建前后工作区均干净。
 - Runtime build ID：`84dadcb57e8a9dd057ecaade86e7df7c4e7bcf9f58c342a7af8137b88ad9d417`。
 
-## v3.30.0-win.2 预编译发布入口
+## v3.30.0-win.2 / win.3 预编译发布入口
 
-win.2 不改变 BotMux runtime 逻辑，只增加预编译包的发布和安装入口：
+win.2 不改变 BotMux runtime 逻辑，只增加预编译包的发布和安装入口；win.3 补充无 curl 环境的 `Invoke-WebRequest` 自动回退，并将 Release 改为 PowerShell 可原生解压的 ZIP：
 
-- `windows/install.ps1` 使用 `curl.exe` 下载 GitHub Release 运行包与独立 SHA-256，先校验归档，再调用原有 `manage.mjs` 做逐文件清单和 ConPTY 验证；默认安装到当前用户 `%LOCALAPPDATA%\BotmuxWindows` 并幂等更新用户 PATH。
+- `windows/install.ps1` 优先使用 `curl.exe` 下载 GitHub Release 运行包与独立 SHA-256，curl 不存在时自动回退 `Invoke-WebRequest`；先校验归档，再调用原有 `manage.mjs` 做逐文件清单和 ConPTY 验证。默认安装到当前用户 `%LOCALAPPDATA%\BotmuxWindows` 并幂等更新用户 PATH。
 - 安装脚本不会绕过运行中 fleet 的保护，也不修改 `%USERPROFILE%\.botmux` 数据。Node 版本、x64 架构、压缩包版本和目标平台不匹配时均在激活前失败。
 - `.github/workflows/windows-release.yml` 只接受与 `release.json` 完全匹配的 `windows-vX.Y.Z-win.N` 标签；Linux 构建出的同一个归档须通过 Windows Node 22/24 安装验证后，才发布运行包、SHA-256 和安装脚本。
-- 在 dev-win 上已用 `file://` 下载地址完整执行 bootstrap：curl 下载、归档 SHA-256、安装器逐文件校验、ConPTY 探针、隔离安装和安装后版本检查全部通过。GitHub Release 在线地址在标签发布后另行复核。
+- 当前安装器在 dev-win 上通过 PowerShell parser；Linux 专项回归为 8 个测试文件、81 项通过。
+- 在 dev-win 上已完整执行 ZIP bootstrap：curl + 系统 `tar.exe` 路径用时 62.7 秒；从 PATH 排除 curl 后，`Invoke-WebRequest` 下载回退用时 62.8 秒；强制模拟无 `tar.exe` 后，`Expand-Archive` 解压回退用时 159.2 秒。三条路径的归档 SHA-256、逐文件校验、ConPTY 探针、隔离安装和安装后版本检查均通过。测试使用既有 `3.30.0-win.1` 运行包验证候选安装器逻辑，不改变当前用户全局实例。win.3 的 GitHub Release 在线地址在标签发布后另行复核。
 
 ## v3.30.0-win.1 上游同步与源码构建
 

@@ -16,7 +16,7 @@
 
 ## 推荐：下载已编译版本
 
-普通用户推荐使用 GitHub Release 中已经构建并通过 Windows 验证的运行包。这样不需要 Git、Bun、Visual Studio、Python 或另一台 Linux；目标 Windows 只需预先安装 x64 Node.js 22.13.0 或更高版本，以及要接入的 Agent CLI。
+普通用户推荐使用 GitHub Release 中已经构建并通过 Windows 验证的运行包。这样不需要 curl、tar、Git、Bun、Visual Studio、Python 或另一台 Linux；目标 Windows 只需 Windows 10/11 x64、PowerShell 5.1 或更高版本、x64 Node.js 22.13.0 或更高版本，以及要接入的 Agent CLI。
 
 在 PowerShell 中快速安装：
 
@@ -24,7 +24,13 @@
 curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1 | Out-String | Invoke-Expression
 ```
 
-这与 Unix 上常见的 `curl | sh` 是同一种入口；原生 Windows 使用 PowerShell，而不是 `/bin/bash`。如果希望先审阅脚本再执行：
+这与 Unix 上常见的 `curl | sh` 是同一种入口；原生 Windows 使用 PowerShell，而不是 `/bin/bash`。Windows 10 1803 及之后的常规版本和 Windows 11 通常自带 `curl.exe`。如果系统没有 curl，可使用 PowerShell 自带的下载能力：
+
+```powershell
+(Invoke-WebRequest -UseBasicParsing https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1).Content | Invoke-Expression
+```
+
+安装脚本下载运行包时也会自动选择 `curl.exe`，不存在时回退到 `Invoke-WebRequest`。Release 使用 Windows 原生 ZIP，PowerShell 自带的 `Expand-Archive` 负责解压，不依赖 `tar.exe`。如果希望先审阅脚本再执行：
 
 ```powershell
 $installer = Join-Path $env:TEMP 'botmux-install.ps1'
@@ -34,10 +40,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 
 安装脚本会完成以下工作：
 
-1. 从 `redmed/botmux-windows` 的 GitHub Release 下载 `win32-x64` 完整运行包和独立 SHA-256 文件；
-2. 先校验压缩包整体 SHA-256，再由包内安装器校验 6,000 多个运行文件及真实 ConPTY；
-3. 安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，不写系统级目录；
-4. 幂等地把 `%LOCALAPPDATA%\BotmuxWindows\bin` 加入当前用户 PATH，并通知桌面环境。当前控制台也能立即使用完整路径，新开的控制台可直接执行小写 `botmux`。
+1. 检查 Windows 10/11 x64、PowerShell 5.1 或更高版本、Node.js 22.13.0 或更高版本，以及 Node 本身是否为 x64；
+2. 优先用 `curl.exe` 下载，缺失时自动回退到 PowerShell 的 `Invoke-WebRequest`；
+3. 优先用系统 `tar.exe` 快速解压 ZIP，缺失时自动回退到 PowerShell 的 `Expand-Archive`；
+4. 先校验压缩包整体 SHA-256，再由包内安装器校验 6,000 多个运行文件、实际 CLI 版本及真实 ConPTY；
+5. 安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，不写系统级目录；
+6. 幂等地把 `%LOCALAPPDATA%\BotmuxWindows\bin` 加入当前用户 PATH，并通知桌面环境。当前控制台也能立即使用完整路径，新开的控制台可直接执行小写 `botmux`。
+
+Git、Bun、Python 和 Visual Studio 只在“从源码构建”时需要，预编译安装不会检查或安装它们。TraeX、Claude Code 等 Agent CLI 以及飞书机器人凭据属于安装后的业务配置：用户按实际选择单独安装、登录和配置，通用安装器不会擅自处理。
 
 首次安装完成后：
 
@@ -54,7 +64,7 @@ botmux stop
 botmux start
 ```
 
-安装器不会在 fleet 仍存活时强制覆盖版本。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.2`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。脚本本身也作为 Release 附件发布，便于先下载审阅后再运行。
+安装器不会在 fleet 仍存活时强制覆盖版本。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.3`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。脚本本身也作为 Release 附件发布，便于先下载审阅后再运行。
 
 ## Windows 本机从源码安装
 
