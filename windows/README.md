@@ -90,17 +90,11 @@ win.2 复用上游 `codexRpcInput`，增加 Windows TraeX + PTY 的启动、关�
   "cliId": "traex",
   "backendType": "pty",
   "codexRpcInput": true,
-  "sandbox": false,
-  "cliRuntime": {
-    "id": "traex-native",
-    "executable": "C:\\Users\\YOUR_NAME\\AppData\\Local\\Programs\\TraeX\\bin\\traex.exe",
-    "update": { "provider": "none" }
-  },
-  "cliPathOverride": "C:\\Users\\YOUR_NAME\\AppData\\Local\\Programs\\TraeX\\bin\\traex.exe"
+  "sandbox": false
 }
 ```
 
-两个 executable 路径必须完全一致。RPC 不兼容 `disableCliBypass=true`、sandbox、read isolation、adopt、wrapper 或 startupCommands；这类需求不能通过关闭相应保护来自动迁移。本版不为已有配置静默修改权限。新配置仅应用于新会话；旧会话先关闭并重建，避免继续使用数据库内冻结的旧配置。终端由同一原生 TraeX 的 `--remote resume` 显示，模型输入经结构化 RPC 传递。
+将官方 TraeX 的 bin 目录加入启动进程的 PATH（例如 `$env:PATH="C:\Users\YOUR_NAME\AppData\Local\Programs\TraeX\bin;$env:PATH"`）。本版使用官方可执行文件发现；不要配置 `cliPathOverride`（上游 RPC 会拒绝含糊的 wrapper），也不要设置 `cliRuntime`（上游配置 schema 目前仅对 Codex 开放）。RPC 不兼容 `disableCliBypass=true`、sandbox、read isolation、adopt、wrapper 或 startupCommands；这类需求不能通过关闭相应保护来自动迁移。本版不为已有配置静默修改权限。新配置仅应用于新会话；旧会话先关闭并重建，避免继续使用数据库内冻结的旧配置。终端由同一原生 TraeX 的 `--remote resume` 显示，模型输入经结构化 RPC 传递。
 
 已登录 TraeX 后，可显式运行完整实机输入验证（会产生三个小型模型请求和一个保留的原生会话，不发送飞书消息）：
 
