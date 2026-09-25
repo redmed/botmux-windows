@@ -28,6 +28,7 @@ import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { WebSocket } from 'ws';
+import { killWindowsProcessTree, windowsProcessCommandLine } from './host/runtime.js';
 import {
   CODEX_OUTPUT_LIMIT_ERROR_CODE,
   isExactCodexOutputLimitError,
@@ -68,6 +69,7 @@ function isAlive(pid: number): boolean {
 /** Kill the whole process group (node wrapper + its native app-server child).
  *  The app-server is spawned `detached`, so its pid is the group leader. */
 function killGroup(pid: number, signal: NodeJS.Signals): void {
+  if (process.platform === 'win32') { killWindowsProcessTree(pid); return; }
   try { process.kill(-pid, signal); } catch { try { process.kill(pid, signal); } catch { /* gone */ } }
 }
 
@@ -576,6 +578,11 @@ export class CodexRpcEngine {
    *  reused pid could not carry (P1-2). */
   private processIsOurAppServer(pid: number, markedUrl?: string): boolean {
     let argv = '';
+    if (process.platform === 'win32') {
+      argv = windowsProcessCommandLine(pid) ?? '';
+      // A legacy marker without the endpoint is insufficient on Windows.
+      return !!markedUrl && /\bapp-server\b/.test(argv) && argv.includes(markedUrl);
+    }
     try { argv = readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' '); }
     catch {
       try { argv = execFileSync('ps', ['-o', 'args=', '-p', String(pid)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }

@@ -76,3 +76,36 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 - PTY 进程不具有 tmux 的跨 daemon 存活能力。会话能否恢复取决于 CLI 自身的 resume 支持。
 - 本版没有实现 Windows 文件沙盒；依赖 bubblewrap/Unix sandbox 的功能不得作为已支持能力宣传，也不得把沙盒失败静默降级成无隔离运行。
 - 飞书端到端必须用独立测试机器人，验证私聊 chat scope、首条和连续回复、无重复、中文、重启恢复。CLI `--version`、apiOnly daemon 或 ConPTY 测试通过均不等价于此项通过。
+
+## Windows TraeX 的可靠输入（win.2）
+
+实测 TraeX 0.207.1 的 TUI 会把每次提交中的第一个 `、` 改成 `/`，即使只有 `a、b、c`。BotMux 的 history 全文确认因此失败，上游普通 PTY 的开场消息重试可能造成重复回复。ConPTY 原始字节回环无差异；通过原生 app-server RPC 输入，持久化文本逐字一致。
+
+win.2 复用上游 `codexRpcInput`，增加 Windows TraeX + PTY 的启动、关闭及恢复接入。Windows TraeX **必须开启 RPC**；配置不兼容、RPC 启动失败或首条未能发送时，明确报错，不退回有问题的 TUI 粘贴。已发出但未确认的 RPC 沿用上游的保守处理，不自动重发。Linux/macOS 与其它 CLI 的默认路径保持原样。
+
+在原有机器人配置中设置以下字段（保留原 app、凭据和用户身份配置）：
+
+```json
+{
+  "cliId": "traex",
+  "backendType": "pty",
+  "codexRpcInput": true,
+  "sandbox": false,
+  "cliRuntime": {
+    "id": "traex-native",
+    "executable": "C:\\Users\\YOUR_NAME\\AppData\\Local\\Programs\\TraeX\\bin\\traex.exe",
+    "update": { "provider": "none" }
+  },
+  "cliPathOverride": "C:\\Users\\YOUR_NAME\\AppData\\Local\\Programs\\TraeX\\bin\\traex.exe"
+}
+```
+
+两个 executable 路径必须完全一致。RPC 不兼容 `disableCliBypass=true`、sandbox、read isolation、adopt、wrapper 或 startupCommands；这类需求不能通过关闭相应保护来自动迁移。本版不为已有配置静默修改权限。新配置仅应用于新会话；旧会话先关闭并重建，避免继续使用数据库内冻结的旧配置。终端由同一原生 TraeX 的 `--remote resume` 显示，模型输入经结构化 RPC 传递。
+
+已登录 TraeX 后，可显式运行完整实机输入验证（会产生三个小型模型请求和一个保留的原生会话，不发送飞书消息）：
+
+```powershell
+node .\candidate\windows\verify-traex.mjs 'C:\Users\YOUR_NAME\AppData\Local\Programs\TraeX\bin\traex.exe'
+```
+
+该验证检查中文、顿号、换行与引号逐字一致、连续输入、终端显示、同一原生线程恢复、孤儿进程身份验证及进程树清理。它不在普通安装器中自动运行，避免安装动作调用模型。
