@@ -77,7 +77,7 @@ node windows/sync-upstream.mjs vX.Y.Z X.Y.Z-win.1 ../botmux-windows-X.Y.Z
 - 本版没有实现 Windows 文件沙盒；依赖 bubblewrap/Unix sandbox 的功能不得作为已支持能力宣传，也不得把沙盒失败静默降级成无隔离运行。
 - 飞书端到端必须用独立测试机器人，验证私聊 chat scope、首条和连续回复、无重复、中文、重启恢复。CLI `--version`、apiOnly daemon 或 ConPTY 测试通过均不等价于此项通过。
 
-## Windows TraeX 的可靠输入（win.2）
+## Windows TraeX 的可靠输入（win.2 起）
 
 实测 TraeX 0.207.1 的 TUI 会把每次提交中的第一个 `、` 改成 `/`，即使只有 `a、b、c`。BotMux 的 history 全文确认因此失败，上游普通 PTY 的开场消息重试可能造成重复回复。ConPTY 原始字节回环无差异；通过原生 app-server RPC 输入，持久化文本逐字一致。
 
@@ -103,3 +103,17 @@ node .\candidate\windows\verify-traex.mjs 'C:\Users\YOUR_NAME\AppData\Local\Prog
 ```
 
 该验证检查中文、顿号、换行与引号逐字一致、连续输入、终端显示、同一原生线程恢复、孤儿进程身份验证及进程树清理。它不在普通安装器中自动运行，避免安装动作调用模型。
+
+## worker 恢复验证（win.3 起）
+
+win.2 的 RPC thread 已恢复时，worker 仍可能等待只用于展示的终端出现提示符，直到 90 秒超时才提交消息。win.3 仅对已确认原生 thread 的 Windows TraeX RPC 路径解除该启动等待；输入权限、重启代际和不确定提交状态等原有检查仍然生效，不伪造 idle 或 turn-complete。
+
+已登录 TraeX 后，在 Windows 候选包运行：
+
+```powershell
+node .\candidate\windows\verify-worker.mjs 'C:\Users\YOUR_NAME\AppData\Local\Programs\TraeX\bin\traex.exe'
+```
+
+脚本使用临时 HOME/USERPROFILE 和模拟飞书配置，调用真实 worker、原生 RPC 和终端。先完成两轮，然后关闭 worker，启动新 worker 恢复同一 native thread，要求 30 秒内收到恢复输入确认。验证总共三次 final_output、每代开场提交确认一次、没有 user_notify，以及自有进程退出。它会产生三个小型模型请求，但不会发送飞书消息；输出包含实测恢复确认耗时及本地证据目录。
+
+该 worker 检查补充 `verify-traex.mjs` 的逐字输入和 viewer 检查。飞书验收仍需检查实际消息数、原生输入条数，以及 daemon 重启后沿用同一会话。不要用模型回复耗时替代输入入队耗时；首次进程启动超过上游运输确认窗口时，可能先出现一次“暂未确认进入执行队列，请勿重发”提示。
