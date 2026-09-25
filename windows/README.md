@@ -23,10 +23,12 @@
 | 环境 | 要求 |
 | --- | --- |
 | Windows | x64；实测机器为 Windows 10 build 19045 |
-| Node.js | >=22.13；建议使用受支持的 22/24 LTS，包含 npm |
+| Node.js | >=22.13，包含 npm；本次源码构建使用 22.23.3，产物另在 24.21.0 验证运行 |
 | Git for Windows | git.exe 可在 PATH 中找到；用于获取源码、校验版本及后续同步 |
 | Bun | 固定为 1.4.2；可用 `npm install -g bun@1.4.2` 安装，安装后新开终端 |
 | 网络 | 能访问源码仓库与 npm 依赖源；按本机网络设置代理 |
+
+资源规划建议至少 8 GB 内存、5 GB 可用磁盘。本次源码、依赖和候选目录合计约 0.77 GB；类型检查期间观察到单个 Node 进程约 2.5 GB 内存。安装副本、工具链和缓存另占空间，这些建议不代表已测出的最低配置。
 
 使用 PowerShell 进入 **Windows 派生分支**的源码根目录，执行：
 
@@ -56,6 +58,20 @@ node windows/from-source.mjs --bun 'C:\Tools\Bun\bun.exe' --root 'D:\Apps\Botmux
 ```
 
 入口会拒绝错误的 Bun 版本、未提交的源码、源码 ZIP、Git worktree，以及共享依赖的符号链接或目录联接。修改源码后先提交，保证运行包可以追溯到具体提交；从远端获取时应选择包含 Windows 适配的分支。当前上游官方分支本身不包含这个安装入口。
+
+Windows 派生仓库尚未上传时，也可以全部在 Windows 上从官方基线和交付补丁得到源码。将 `botmux-v3.29.0-windows-win4.patch` 下载到当前目录，再运行：
+
+```powershell
+git clone -c core.autocrlf=false -c core.longpaths=true --depth 1 --branch v3.29.0 https://github.com/deepcoldy/botmux.git botmux-windows
+Set-Location botmux-windows
+git switch -c windows/native-v3.29.0
+git apply '..\botmux-v3.29.0-windows-win4.patch'
+git add .
+git commit -m 'Apply Windows native build support'
+node windows/from-source.mjs
+```
+
+Git 提交需要已配置本人的提交姓名和邮箱。此处生成的本地提交 ID 会与维护仓库不同，运行包记录该本地提交作为来源。将来有派生仓库后，直接 clone 对应 Windows 分支即可省去应用补丁和本地提交这几步。
 
 该版本的 Windows 终端依赖提供预编译二进制，无需 Visual Studio C++ 工具或 Python。Bun 自带 shell 处理构建中的 cp，可执行权限步骤由跨平台 Node 脚本处理，调用者可使用 PowerShell，无需 Git Bash 的 Unix 命令。入口跳过 Electron 桌面程序下载；它安装的是 BotMux daemon/CLI 运行版。未来更换原生依赖版本时，应重新核验这一环境要求。
 
