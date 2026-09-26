@@ -1,0 +1,39 @@
+name: Sync Windows release notes
+
+on:
+  push:
+    branches:
+      - 'windows/native-v*'
+    paths:
+      - 'windows/release-notes.md'
+      - 'windows/release.json'
+      - '.github/workflows/windows-release-notes.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-notes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Update existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          version=$(node -p "require('./windows/release.json').version")
+          tag="windows-v${version}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release edit "${tag}" --notes-file windows/release-notes.md
+          else
+            echo "Release ${tag} does not exist yet; skipping notes sync."
+          fi

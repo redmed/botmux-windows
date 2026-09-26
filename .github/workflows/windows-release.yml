@@ -97,6 +97,7 @@ jobs:
     needs: [build, verify]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: windows-release-${{ needs.build.outputs.version }}
@@ -104,12 +105,7 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           name: BotMux Windows ${{ needs.build.outputs.version }}
-          body: |
-            Windows 10/11 x64 native runtime for the redmed/botmux-windows fork.
-
-            The archive was built on Linux, verified on Windows with Node.js 22 and 24, and includes a per-file integrity manifest. Node.js >= 22.13.0 is required on the target Windows machine.
-
-            Use install.ps1 from PowerShell or install-git-bash.sh from Git Bash.
+          body_path: windows/release-notes.md
           files: release/*
           fail_on_unmatched_files: true
           make_latest: true
