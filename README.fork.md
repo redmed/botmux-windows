@@ -15,6 +15,8 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 
 ## 推荐：安装已编译版本
 
+### PowerShell
+
 普通 Windows 用户无需下载源码或准备 Bun。预先安装 x64 Node.js 22.13.0 或更高版本，然后在 PowerShell 中执行一行快速安装命令：
 
 ```powershell
@@ -26,6 +28,8 @@ curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download
 ```powershell
 (Invoke-WebRequest -UseBasicParsing https://github.com/redmed/botmux-windows/releases/latest/download/install.ps1).Content | Invoke-Expression
 ```
+
+### Git Bash
 
 如果当前终端是 Git Bash，不要直接运行包含 `Out-String` / `Invoke-Expression` 的 PowerShell 命令；使用 Git Bash 专用入口：
 
@@ -43,9 +47,13 @@ curl.exe -fsSL https://github.com/redmed/botmux-windows/releases/latest/download
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 ```
 
-脚本从本 Fork 的 GitHub Release 下载已经编译好的 Windows x64 运行包及 SHA-256，完成两层完整性校验，安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，并把其 `bin` 目录加入用户 PATH。首次安装后新开 PowerShell，运行 `botmux setup` 和 `botmux start`。
+### 环境配置
+
+脚本从本 Fork 的 GitHub Release 下载已经编译好的 Windows x64 运行包及 SHA-256，完成两层完整性校验，安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，并把其 `bin` 目录加入**用户 PATH**。首次安装后新开 PowerShell，运行 `botmux setup` 和 `botmux start`。
 
 安装器会预检 Windows 10/11 x64、PowerShell 5.1+、Node.js 22.13.0+ 和 x64 Node 架构，并在安装阶段验证 CLI 与真实 ConPTY。预编译安装不需要 Git、Bun、Python 或 Visual Studio；Agent CLI 的安装与登录、飞书凭据配置仍由用户在安装后按实际选择完成。
+
+### 安装前 botmux 需停止
 
 升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条 PowerShell 命令增加 `-Version 3.30.0-win.4`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
 
