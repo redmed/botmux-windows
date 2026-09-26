@@ -1,4 +1,4 @@
-# botmux (for Window)
+# botmux (for Windows x64)
 
 > **Windows 原生 Fork：** 当前 `windows/native-v3.30.0` 分支由
 > [`redmed/botmux-windows`](README.fork.md) 维护，用于在 Windows 10/11 x64
