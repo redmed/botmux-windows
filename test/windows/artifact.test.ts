@@ -57,7 +57,9 @@ it('keeps the release bootstrap pinned to the declared Windows version', () => {
   const release = JSON.parse(readFileSync(join(process.cwd(), 'windows/release.json'), 'utf8'));
   const installer = readFileSync(join(process.cwd(), 'windows/install.ps1'), 'utf8');
   const gitBashInstaller = readFileSync(join(process.cwd(), 'windows/install-git-bash.sh'), 'utf8');
+  const releaseNotes = readFileSync(join(process.cwd(), 'windows/release-notes.md'), 'utf8');
   const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/windows-release.yml'), 'utf8');
+  const releaseNotesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/windows-release-notes.yml'), 'utf8');
   expect(installer).toContain(`[string]$Version = '${release.version}'`);
   expect(installer).toContain(`[Version]'${release.nodeMinimum}'`);
   expect(installer).toContain('releases/download/$tag');
@@ -72,5 +74,12 @@ it('keeps the release bootstrap pinned to the declared Windows version', () => {
   expect(gitBashInstaller).toContain('cygpath -w');
   expect(gitBashInstaller).toContain('chcp.com 65001');
   expect(gitBashInstaller).toContain('BOTMUX_INSTALLER_URL');
+  expect(releaseWorkflow).toContain('- uses: actions/checkout@v4');
   expect(releaseWorkflow).toContain('cp windows/install-git-bash.sh release/install-git-bash.sh');
+  expect(releaseWorkflow).toContain('body_path: windows/release-notes.md');
+  expect(releaseNotes).toContain('releases/latest/download/install.ps1');
+  expect(releaseNotes).toContain('releases/latest/download/install-git-bash.sh');
+  expect(releaseNotes).toContain('botmux autostart enable');
+  expect(releaseNotes).toContain('README.fork.md#%E6%8E%A8%E8%8D%90%E5%AE%89%E8%A3%85%E5%B7%B2%E7%BC%96%E8%AF%91%E7%89%88%E6%9C%AC');
+  expect(releaseNotesWorkflow).toContain('gh release edit "${tag}" --notes-file windows/release-notes.md');
 });
