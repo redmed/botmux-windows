@@ -1,12 +1,12 @@
 # Windows native 候选版验证记录
 
-最近验证日期：2026-10-10。当前发布候选版本：`3.39.0-win.1`。
+最近验证日期：2026-10-10。当前正式发布版本：`3.39.0-win.1`。
 
 ## v3.39.0-win.1 上游同步与候选验证
 
-- 上游稳定版：`deepcoldy/botmux` tag `v3.39.0`，commit `3cbf8102e98756fde5f605d0228d64d94a6ee8b1`；Fork `master` 已快进到验证时的官方 `master` `5d237c85510eb3aa02d08a6abff86a8fd18026fa`。
-- Windows 候选分支：`windows/native-v3.39.0`；验证源码 commit `02e459b750b45f969510d75e3cda1cac0793efb5`，候选版本 `3.39.0-win.1`。
-- Runtime build ID：`447591300066beddb4bbb464175c6cfa38eddb4a90abcf962b36434e02548dcf`。Windows 本机构建清单为 7,149 个文件；最终 Linux 交叉构建清单记录 7,153 个哈希文件，两者的版本、源码 commit 和 Runtime build ID 一致。
+- 上游稳定版：`deepcoldy/botmux` tag `v3.39.0`，commit `3cbf8102e98756fde5f605d0228d64d94a6ee8b1`；正式发布复验后，Fork `master` 已再次快进到官方 `master` `08680da70f21bb50365d276ee1d5d3b0a46fcb5f`，Windows 改造未合入 `master`。
+- Windows 分支：`windows/native-v3.39.0`；运行时修复 commit `02e459b750b45f969510d75e3cda1cac0793efb5`，正式发布源码 commit `cc431bc559df092dfbc3fdc45edb20bcf17aa3b3`，版本 `3.39.0-win.1`。
+- Runtime build ID：`447591300066beddb4bbb464175c6cfa38eddb4a90abcf962b36434e02548dcf`。Windows 本机构建清单为 7,149 个文件；候选 Linux 交叉构建清单记录 7,153 个哈希文件。正式 Release 清单固定到 `cc431bc559df092dfbc3fdc45edb20bcf17aa3b3`，上游 commit、版本和 Runtime build ID 均与候选验证一致。
 - 26 个 Windows 下游提交重放到新基线。冲突处理同时保留 v3.39 的 strict env、sandbox 门禁和 Windows ConPTY、进程树、TraeX 原生 RPC 能力；旧分支和已发布标签均未改写。
 
 | 项目 | v3.39.0-win.1 实测结果 |
@@ -25,7 +25,16 @@
 
 完整 worker 证据：BotMux session `705fec06-cbee-4f6d-b1f0-0727f762820a`，TraeX native thread `01a12235-2be9-7c43-9ffa-22790f0eed93`，证据目录 `C:\Users\qiaogang\AppData\Local\Temp\botmux-worker-rpc-3BFMrT`。独立 TraeX 验证 thread 为 `01a12234-dbca-7652-a084-3a069103a187`。
 
-上述 Windows 安装、升级、回滚和认证验证全部使用独立 clone、依赖目录、profile 与安装根。dev-win 当前用户全局实例仍为 current `3.30.0-win.4`、previous `3.30.0-win.3`，未停止或替换。本节记录的是已推送的发布候选分支，不代表已创建不可变标签或 GitHub Release；发布及当前用户全局部署需要分别获得授权。
+上述候选阶段的 Windows 安装、升级、回滚和认证验证全部使用独立 clone、依赖目录、profile 与安装根；在用户随后明确授权全局部署和正式发布后，按“先部署验证、后创建不可变标签”的顺序完成以下验收。
+
+## v3.39.0-win.1 全局部署与正式发布
+
+- dev-win 当前用户全局实例从 current `3.30.0-win.4`、previous `3.30.0-win.3` 升级为 current `3.39.0-win.1`、previous `3.30.0-win.4`。切换前确认所有会话无运行中 turn，并备份 `active.json` 与 `bots.json` 到 `C:\Users\qiaogang\AppData\Local\Temp\botmux-global-upgrade-20261010-073608`。
+- 切换后 Dashboard HTTP、CLI 版本和会话恢复均通过；新版 supervisor、daemon、Dashboard 与 worker 共 5 个进程，旧版进程为 0，孤儿 TraeX app-server 为 0。Windows 任务计划 `botmux-daemon` 存在、Enabled、Last Result 为 0。
+- 升级前后 `bots.json` 初始哈希一致；实际飞书验证后仅出现用户授权卡产生的 grant expiry 与 quota limit 变化，没有机器人凭据变化。群内 Windows 机器人实际回复 `GLOBAL339-OK 版本 3.39.0-win.1；daemon online；Dashboard online。`，对应会话随后恢复 idle。
+- 不可变 annotated tag `windows-v3.39.0-win.1` 指向 commit `cc431bc559df092dfbc3fdc45edb20bcf17aa3b3`。GitHub Actions run `38005673975` 的 Linux build、Windows Node 22/24 双矩阵验证和 publish job 全部成功；Release 已设为 Latest。
+- 公开 `install.ps1`、`install-git-bash.sh`、ZIP 和 SHA-256 四个资产均返回 HTTP 200。正式 ZIP SHA-256 为 `9dc21c0642922d337e3247ecd6d6a788e448588d9003f71d9a7ba53d13c87572`，公开 `install.ps1` SHA-256 为 `2698b6dba8e14b198b7d41dbc3523669372dcd6c7cd933bb7d7cfd5ae5644571`。
+- dev-win 从公开 `releases/latest/download/install.ps1` 下载并安装到全新隔离 HOME、USERPROFILE 与含空格安装根；归档 SHA-256、逐文件清单、激活、CLI `3.39.0-win.1` 和 ConPTY 均通过，探针结果为 Node 22.23.3、`pty=true`。复验期间全局 `active.json` 哈希及原 5 个全局进程 PID 均保持不变，完成后再次确认 Dashboard online、所有会话 idle、旧版进程 0、孤儿 TraeX 0。
 
 ## v3.30.0 历史验证
 
