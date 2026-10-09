@@ -1593,7 +1593,6 @@ async function engageCodexRpc(cfg: Extract<DaemonToWorker, { type: 'init' }>): P
       stopCodexRpcEngine();
       throw err;
     }
-    log(`Codex RPC input failed to start (${err?.message ?? err})`);
     clearRpcEnginePidMarker();
     try { engine?.stop(); } catch { /* best effort */ }   // P1-3a: stop the LOCAL ref (codexRpcEngine may be unassigned)
     // The local engine may not yet have been published into codexRpcEngine.
@@ -1601,6 +1600,7 @@ async function engageCodexRpc(cfg: Extract<DaemonToWorker, { type: 'init' }>): P
     // failure; otherwise paste fallback could inherit a stale fail-closed mark.
     stopCodexRpcEngine();
     if (requiresWindowsTraexRpc(cfg)) throw new Error(`${WINDOWS_TRAEX_RPC_ERROR} ${err?.message ?? err}`);
+    log(`Codex RPC input failed to start (${err?.message ?? err}); falling back to paste mode`);
     return 'not-engaged';
   }
 }
@@ -8651,6 +8651,17 @@ function settleRpcTurnTerminal(
     terminal.identity.turnId,
     terminal.identity.dispatchAttempt,
   );
+  // The transcript watcher can close this exact turn just before the native
+  // terminal callback runs. Drain that already-ready answer now; otherwise
+  // hasPendingTurn() is false and finalization publishes turn_terminal without
+  // ever forwarding the final_output.
+  if (terminal.status === 'completed'
+    && codexBridgeQueue.hasTerminalTurn(
+      terminal.identity.turnId,
+      terminal.identity.dispatchAttempt,
+    )) {
+    emitReadyCodexTurns();
+  }
   if (terminal.status === 'completed'
     && codexBridgeQueue.hasPendingTurn(
       terminal.identity.turnId,
@@ -13327,7 +13338,9 @@ async function flushPending(): Promise<void> {
   const claudeBridgeActive = !!bridgeJsonlPath && !lastInitConfig?.adoptMode;
   const codexBridgeActive = codexBridgeFallbackActive();
   const runtimeSupportsTypeAhead =
-    cliAdapter.supportsTypeAhead === true || codexAppRuntimeTypeAheadReady();
+    cliAdapter.supportsTypeAhead === true
+    || codexAppRuntimeTypeAheadReady()
+    || windowsRpcInputReady();
   const typeAheadAllowed = pendingInputAllowsTypeAhead(
     runtimeSupportsTypeAhead,
     durableTurnInFlight,
@@ -14271,7 +14284,9 @@ function sendToPty(
   }
   if (!cliAdapter) return false;
   const supportsTypeAhead = pendingInputAllowsTypeAhead(
-    cliAdapter.supportsTypeAhead === true || codexAppRuntimeTypeAheadReady(),
+    cliAdapter.supportsTypeAhead === true
+      || codexAppRuntimeTypeAheadReady()
+      || windowsRpcInputReady(),
     durableTurnInFlight,
     next,
     directRpcTurnBlocksTypeAhead(),

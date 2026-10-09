@@ -394,6 +394,14 @@ describe('worker structured-turn status wiring', () => {
     expect(finalize).toBeGreaterThan(hydrationDrain);
     expect(hydrate).toContain('CODEX_RPC_TERMINAL_HYDRATION_DELAYS_MS');
 
+    const settle = functionSlice('settleRpcTurnTerminal', 'handleRpcTurnTerminal');
+    const ready = settle.indexOf('codexBridgeQueue.hasTerminalTurn(');
+    const emit = settle.indexOf('emitReadyCodexTurns()', ready);
+    const pending = settle.indexOf('codexBridgeQueue.hasPendingTurn(', emit);
+    expect(ready).toBeGreaterThanOrEqual(0);
+    expect(emit).toBeGreaterThan(ready);
+    expect(pending).toBeGreaterThan(emit);
+
     const init = source.slice(source.indexOf('await spawnCli(msg'), source.indexOf('// Queue the initial prompt'));
     expect(init.indexOf('await spawnCli(msg')).toBeLessThan(init.indexOf('releaseRpcTurnTerminalDeferral('));
   });
@@ -456,6 +464,29 @@ describe('worker structured-turn status wiring', () => {
     expect(postWriteBreak).toBeGreaterThan(loopStart);
     expect(sendToPtyTypeAhead).toBeGreaterThanOrEqual(0);
     expect(sendToPtyBusyArgument).toBeGreaterThan(sendToPtyTypeAhead);
+  });
+
+  it('lets an idle Windows RPC engine accept the next turn without a PTY composer redraw', () => {
+    const flush = source.slice(
+      source.indexOf('async function flushPending'),
+      source.indexOf('function sendToPty'),
+    );
+    const runtimeTypeAhead = flush.indexOf('const runtimeSupportsTypeAhead');
+    const flushWindowsReady = flush.indexOf('windowsRpcInputReady()', runtimeTypeAhead);
+    const flushBlock = flush.indexOf('directRpcTurnBlocksTypeAhead()', flushWindowsReady);
+    expect(runtimeTypeAhead).toBeGreaterThanOrEqual(0);
+    expect(flushWindowsReady).toBeGreaterThan(runtimeTypeAhead);
+    expect(flushBlock).toBeGreaterThan(flushWindowsReady);
+
+    const sendToPtyStart = source.indexOf('function sendToPty');
+    const sendToPtyEnd = source.indexOf('// ─── Screen Update Timer', sendToPtyStart);
+    const sendToPty = source.slice(sendToPtyStart, sendToPtyEnd);
+    const sendTypeAhead = sendToPty.indexOf('const supportsTypeAhead');
+    const sendWindowsReady = sendToPty.indexOf('windowsRpcInputReady()', sendTypeAhead);
+    const sendBlock = sendToPty.indexOf('directRpcTurnBlocksTypeAhead()', sendWindowsReady);
+    expect(sendTypeAhead).toBeGreaterThanOrEqual(0);
+    expect(sendWindowsReady).toBeGreaterThan(sendTypeAhead);
+    expect(sendBlock).toBeGreaterThan(sendWindowsReady);
   });
 
   it('makes native terminal settlement idempotent and generation-owned across abort/death/stop cleanup', () => {
