@@ -72,7 +72,7 @@ botmux stop
 botmux start
 ```
 
-安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.30.0-win.4`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
+安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.39.0-win.1`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
 
 ## Windows 本机从源码安装
 
@@ -93,7 +93,7 @@ botmux start
 使用 PowerShell 从维护仓库克隆对应的 **Windows 派生分支**，再进入源码根目录执行：
 
 ```powershell
-git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.30.0 https://github.com/redmed/botmux-windows.git
+git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.39.0 https://github.com/redmed/botmux-windows.git
 Set-Location botmux-windows
 node windows/from-source.mjs --check
 node windows/from-source.mjs

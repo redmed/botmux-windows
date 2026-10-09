@@ -30,6 +30,6 @@ botmux autostart enable
 botmux start
 ```
 
-完整的安装、升级、回滚和排错说明见 [README.fork.md：推荐安装已编译版本](https://github.com/redmed/botmux-windows/blob/windows/native-v3.30.0/README.fork.md#%E6%8E%A8%E8%8D%90%E5%AE%89%E8%A3%85%E5%B7%B2%E7%BC%96%E8%AF%91%E7%89%88%E6%9C%AC)。
+完整的安装、升级、回滚和排错说明见 [README.fork.md：推荐安装已编译版本](https://github.com/redmed/botmux-windows/blob/windows/native-v3.39.0/README.fork.md#%E6%8E%A8%E8%8D%90%E5%AE%89%E8%A3%85%E5%B7%B2%E7%BC%96%E8%AF%91%E7%89%88%E6%9C%AC)。
 
 本 Release 的 Windows x64 运行包由 Linux 构建，并已在 Windows 的 Node.js 22 和 24 环境中验证。请使用随附的 SHA-256 文件核验下载内容。
