@@ -1,6 +1,35 @@
 # Windows native 候选版验证记录
 
-验证日期：2026-09-26。当前发布候选版本：`3.30.0-win.4`。
+最近验证日期：2026-10-10。当前发布候选版本：`3.39.0-win.1`。
+
+## v3.39.0-win.1 上游同步与候选验证
+
+- 上游稳定版：`deepcoldy/botmux` tag `v3.39.0`，commit `3cbf8102e98756fde5f605d0228d64d94a6ee8b1`；Fork `master` 已快进到验证时的官方 `master` `5d237c85510eb3aa02d08a6abff86a8fd18026fa`。
+- Windows 候选分支：`windows/native-v3.39.0`；验证源码 commit `02e459b750b45f969510d75e3cda1cac0793efb5`，候选版本 `3.39.0-win.1`。
+- Runtime build ID：`447591300066beddb4bbb464175c6cfa38eddb4a90abcf962b36434e02548dcf`。Windows 本机构建清单为 7,149 个文件；最终 Linux 交叉构建清单记录 7,153 个哈希文件，两者的版本、源码 commit 和 Runtime build ID 一致。
+- 26 个 Windows 下游提交重放到新基线。冲突处理同时保留 v3.39 的 strict env、sandbox 门禁和 Windows ConPTY、进程树、TraeX 原生 RPC 能力；旧分支和已发布标签均未改写。
+
+| 项目 | v3.39.0-win.1 实测结果 |
+| --- | --- |
+| Linux 完整构建 | Bun 1.4.2；源码、脚本和 test mocks 类型检查、Dashboard bundle、产物与嵌入资源审计全部通过 |
+| Linux 针对性回归 | 最终修复相关 4 个测试文件、201 项通过；升级初始阶段另完成 Windows 工作流 9 个文件、83 项及 RPC/worker 8 个文件、199 项回归 |
+| Linux 交叉构建 | `windows/build.mjs` 在最终 commit 上成功生成 `win32-x64` 运行目录；版本、source commit、Runtime build ID 和清单均可追溯 |
+| Windows 本机构建 | dev-win 的 Windows 10 x64 原生构建通过，用时约 169.1 秒；7,149 个文件，构建后工作区干净 |
+| Windows 专项回归 | 4 个测试文件、32 项通过；POSIX-only 测试未错误计入 Windows 支持范围 |
+| Node 22.23.3 / 24.21.0 | CLI、argv、ConPTY 和进程树检查均通过 |
+| 隔离升级与回滚 | 独立安装根完成 `3.30.0-win.4 → 3.39.0-win.1 → 3.30.0-win.4`；归档、逐文件清单和激活检查通过，用户全局 `active.json` 保持不变 |
+| TraeX 原生 RPC | `verify-traex.mjs` 完成三轮调用；输入逐字相等、viewer、restart 和孤儿进程回收均通过 |
+| 完整 Windows worker | fresh 两轮后新建 worker 恢复第三轮，恰好产生 3 个 `final_output`；恢复输入确认 8,764 ms，无重复提交 |
+
+本轮实机发现并修复了两个仅靠单元测试和单轮验证无法覆盖的时序问题：原生 RPC terminal 早于 transcript ready 时，worker 先排空已完成 turn 再发布 terminal；Windows viewer 未重画 composer 时，后续消息改由已就绪的 RPC 串行提交，同时保留当前回合未结束时的 type-ahead 门禁。Windows 强制 RPC 失败仍直接报错，不静默回退到可能造成中文或重复输入问题的 TUI 粘贴模式。
+
+完整 worker 证据：BotMux session `705fec06-cbee-4f6d-b1f0-0727f762820a`，TraeX native thread `01a12235-2be9-7c43-9ffa-22790f0eed93`，证据目录 `C:\Users\qiaogang\AppData\Local\Temp\botmux-worker-rpc-3BFMrT`。独立 TraeX 验证 thread 为 `01a12234-dbca-7652-a084-3a069103a187`。
+
+上述 Windows 安装、升级、回滚和认证验证全部使用独立 clone、依赖目录、profile 与安装根。dev-win 当前用户全局实例仍为 current `3.30.0-win.4`、previous `3.30.0-win.3`，未停止或替换。本节记录的是已推送的发布候选分支，不代表已创建不可变标签或 GitHub Release；发布及当前用户全局部署需要分别获得授权。
+
+## v3.30.0 历史验证
+
+验证日期：2026-09-26。最后发布版本：`3.30.0-win.4`。
 
 - 上游：`deepcoldy/botmux`，tag `v3.30.0`，commit `79e75b14ffbb128ea83b70c43d51354297171bc6`；该提交同时是验证时的官方 `master`。
 - Windows 本机构建源码：`4b410b69c13533f25cf36923414b577c6fbc6003`；从 GitHub Fork 的 `windows/native-v3.30.0` 分支干净克隆。
