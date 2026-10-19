@@ -83,6 +83,6 @@ const closeProbe = `
 `;
 const closed = spawnSync(process.execPath, ['--input-type=module', '-e', closeProbe],
   { encoding: 'utf8', timeout: 15_000, windowsHide: true });
-assert.equal(closed.status, 0, `PTY close/exit failed: ${closed.error?.message ?? closed.stderr}`);
+assert.equal(closed.status, 0, `PTY close/exit failed: ${closed.error?.message ?? closed.stderr}; ${closed.stdout}`);
 assert.ok(closed.stdout.includes('CLOSE-DONE'));
 console.log(JSON.stringify({ ok: true, version: pkg.version, node: process.versions.node, pty: typeof pty.spawn === 'function', traex: Boolean(process.env.BOTMUX_TEST_TRAEX) }));

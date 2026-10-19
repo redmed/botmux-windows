@@ -102,17 +102,43 @@ export function hostPtyOptions(platform: NodeJS.Platform = process.platform): { 
   return platform === 'win32' ? { useConptyDll: true } : {};
 }
 
-/** After synchronous ConPTY teardown, its native exit notification still needs
- * the JS event loop. Exiting in the same stack can deadlock node-pty's thread
- * finalizer. Callers must return when this schedules the Windows exit; POSIX
- * retains its synchronous process.exit path. */
+type WindowsPtyAgent = {
+  exitCode?: number;
+  _conoutSocketWorker?: { dispose(): void };
+  inSocket?: { destroy(): void };
+};
+const pendingNativeExits = new Set<WindowsPtyAgent>();
+let requestedExitCode: number | undefined;
+let exitDrain: ReturnType<typeof setTimeout> | ReturnType<typeof setImmediate> | undefined;
+
+function drainNativeExits(): void {
+  for (const agent of pendingNativeExits) {
+    // node-pty sets this in its native exit callback, after the waiter thread
+    // has released the process handle. A single event-loop tick is not enough.
+    if (agent.exitCode !== undefined) pendingNativeExits.delete(agent);
+  }
+  if (pendingNativeExits.size) {
+    exitDrain = setTimeout(drainNativeExits, 10);
+    if (requestedExitCode === undefined) exitDrain.unref();
+    return;
+  }
+  exitDrain = undefined;
+  if (requestedExitCode !== undefined) process.exit(requestedExitCode);
+}
+
+/** ConPTY teardown needs its native exit callback before Node's thread
+ * finalizers can run. Callers return when this schedules a Windows exit;
+ * POSIX retains synchronous process.exit. The worker parent's existing kill
+ * backstop still handles a child that never acknowledges termination. */
 export function deferHostProcessExit(code: number): boolean {
   if (process.platform !== 'win32') return false;
-  setImmediate(() => process.exit(code));
+  requestedExitCode = code || requestedExitCode || 0;
+  if (exitDrain) exitDrain.ref();
+  else exitDrain = setImmediate(drainNativeExits);
   return true;
 }
 
-// node-pty 1.1.0's Windows public kill() leaves the conout worker referenced
+// node-pty's Windows public kill() can leave the conout worker referenced
 // when no final data event follows close. Keep this version-specific cleanup
 // in the host adapter; the real Windows smoke asserts the verifier can exit.
 const disposedPtys = new WeakSet<object>();
@@ -120,11 +146,16 @@ export function disposeExitedHostPty(child: object, platform: NodeJS.Platform = 
   if (platform !== 'win32' || disposedPtys.has(child)) return;
   disposedPtys.add(child);
   const internal = child as {
-    _agent?: {
-      _conoutSocketWorker?: { dispose(): void };
-      inSocket?: { destroy(): void };
-    };
+    pid?: number;
+    _agent?: WindowsPtyAgent;
   };
+  if (internal._agent && (internal.pid ?? 0) > 1 && internal._agent.exitCode === undefined) {
+    pendingNativeExits.add(internal._agent);
+    if (!exitDrain) {
+      exitDrain = setImmediate(drainNativeExits);
+      if (requestedExitCode === undefined) exitDrain.unref();
+    }
+  }
   internal._agent?._conoutSocketWorker?.dispose();
   internal._agent?.inSocket?.destroy();
 }
