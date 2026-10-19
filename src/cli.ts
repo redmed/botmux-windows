@@ -3406,7 +3406,7 @@ async function cmdLogs(): Promise<void> {
   }
 
   if (process.platform === 'win32') {
-    const { LogFileFollower } = await import('./cli/log-tail.js');
+    const { LogFileFollower } = await import('./host/log-tail.js');
     const follower = new LogFileFollower({
       sources: files.map(file => ({ file, label: file, stream: 'out' as const })),
       writeLine: line => console.log(line),

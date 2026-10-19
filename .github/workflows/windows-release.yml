@@ -43,7 +43,7 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: node windows/build.mjs
-      - run: bun run test -- test/windows/ test/executable.test.ts test/resolve-command-shell-parse.test.ts test/pty-backend-launch-shell.test.ts test/log-tail.test.ts test/autostart-standalone-path.test.ts
+      - run: bun run test -- test/windows/ test/executable.test.ts test/resolve-command-shell-parse.test.ts test/pty-backend-launch-shell.test.ts test/autostart-standalone-path.test.ts test/codex-rpc-lifecycle.test.ts test/codex-rpc-engine.test.ts test/worker-structured-lifecycle-status.test.ts test/pty-input-policy.test.ts test/pty-reader-compat.test.ts
       - shell: bash
         run: |
           mkdir -p release
