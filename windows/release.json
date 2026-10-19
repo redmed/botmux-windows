@@ -1,8 +1,8 @@
 {
   "upstreamRepository": "https://github.com/deepcoldy/botmux.git",
-  "upstreamRef": "v3.39.0",
-  "upstreamCommit": "3cbf8102e98756fde5f605d0228d64d94a6ee8b1",
-  "version": "3.39.0-win.1",
-  "bunVersion": "1.4.2",
+  "upstreamRef": "v3.47.0",
+  "upstreamCommit": "ba2ad453fde414845292d3e9fd5d165f6d63f7f1",
+  "version": "3.47.0-win.1",
+  "bunVersion": "1.4.3",
   "nodeMinimum": "22.13.0"
 }

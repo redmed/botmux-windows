@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [ValidatePattern('^\d+\.\d+\.\d+-win\.\d+$')]
-  [string]$Version = '3.39.0-win.1',
+  [string]$Version = '3.47.0-win.1',
   [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
   [string]$Repository = 'redmed/botmux-windows',
   [string]$InstallRoot = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'BotmuxWindows'),

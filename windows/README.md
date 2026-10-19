@@ -72,7 +72,7 @@ botmux stop
 botmux start
 ```
 
-安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.39.0-win.1`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
+安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.47.0-win.1`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
 
 ## Windows 本机从源码安装
 
@@ -85,7 +85,7 @@ botmux start
 | Windows | x64；实测机器为 Windows 10 build 19045 |
 | Node.js | >=22.13，包含 npm；本次源码构建使用 22.23.3，产物另在 24.21.0 验证运行 |
 | Git for Windows | git.exe 可在 PATH 中找到；用于获取源码、校验版本及后续同步 |
-| Bun | 固定为 1.4.2；可用 `npm install -g bun@1.4.2` 安装，安装后新开终端 |
+| Bun | 固定为 1.4.3；可用 `npm install -g bun@1.4.3` 安装，安装后新开终端 |
 | 网络 | 能访问源码仓库与 npm 依赖源；按本机网络设置代理 |
 
 资源规划建议至少 8 GB 内存、5 GB 可用磁盘。本次源码、依赖和候选目录合计约 0.77 GB；类型检查期间观察到单个 Node 进程约 2.5 GB 内存。安装副本、工具链和缓存另占空间，这些建议不代表已测出的最低配置。
@@ -93,7 +93,7 @@ botmux start
 使用 PowerShell 从维护仓库克隆对应的 **Windows 派生分支**，再进入源码根目录执行：
 
 ```powershell
-git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.39.0 https://github.com/redmed/botmux-windows.git
+git clone -c core.autocrlf=false -c core.longpaths=true --branch windows/native-v3.47.0 https://github.com/redmed/botmux-windows.git
 Set-Location botmux-windows
 node windows/from-source.mjs --check
 node windows/from-source.mjs
@@ -127,7 +127,7 @@ node windows/from-source.mjs --bun 'C:\Tools\Bun\bun.exe' --root 'D:\Apps\Botmux
 
 ## Linux 构建 Windows 运行包
 
-在独立 Linux checkout 使用 Bun 1.4.2，Node >=22.13：
+在独立 Linux checkout 使用 Bun 1.4.3，Node >=22.13：
 
 ```sh
 bun install --frozen-lockfile
