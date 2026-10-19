@@ -12925,6 +12925,9 @@ function currentPostTerminalInputFence(): typeof postTerminalInputFence {
 }
 
 function armPostTerminalInputFence(): void {
+  // The Windows RPC viewer does not accept input. Its missing/stale composer
+  // must not gate a successor owned by the acknowledged native RPC engine.
+  if (windowsRpcInputReady()) return;
   if (cliAdapter?.postTerminalPromptFence !== true || !backend
     || !backendScreenEvidenceIsAuthoritativeForMutation()
     || currentPostTerminalInputFence()) return;
@@ -16231,6 +16234,7 @@ function postTerminalPromptFenceHolds(
   evidenceSource: IdleEvidenceSource,
   be: SessionBackend,
 ): boolean {
+  if (windowsRpcInputReady()) return false;
   if ((evidenceSource !== 'external' && !currentPostTerminalInputFence())
     || cliAdapter?.postTerminalPromptFence !== true
     || !backendScreenEvidenceIsAuthoritativeForMutation()) return false;
