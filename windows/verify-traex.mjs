@@ -17,7 +17,7 @@ assert.ok(cliBin?.endsWith('.exe'), 'Pass the absolute native traex.exe path');
 const cwd = mkdtempSync(join(tmpdir(), 'botmux rpc 中文 '));
 const sessionId = `win-smoke-${randomUUID()}`;
 const terminals = [];
-let engine, viewer;
+let engine, viewer, evidence;
 const pids = [];
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const wait = async (predicate, label, ms = 60_000) => {
@@ -44,10 +44,13 @@ try {
   await completed('one');
   viewer = pty.spawn(cliBin, ['--remote',engine.wsUrl,'resume','--no-alt-screen','-c','check_for_update_on_startup=false',tid],
     {cwd,env:{...process.env},cols:140,rows:40,...hostPtyOptions()});
-  pids.push(viewer.pid);
   let screen = ''; viewer.onData(text => {screen=(screen+text).slice(-100_000)});
   const ownedViewer = viewer;
   viewer.onExit(() => disposeExitedHostPty(ownedViewer));
+  // node-pty 1.2 connects ConPTY asynchronously; pid is initially zero.
+  // Wait for the real child instead of treating process.kill(0, 0) as it.
+  await wait(() => viewer.pid > 1, 'remote viewer process started');
+  pids.push(viewer.pid);
   await wait(() => /OK/.test(screen), 'remote viewer renders first result');
   await engine.sendTurn(inputs[1],{turnId:'two'}); await completed('two');
   await wait(() => /TWO/.test(screen), 'remote viewer renders follow-up result');
@@ -70,10 +73,12 @@ try {
   }, 'three persisted inputs');
   assert.deepEqual(texts, inputs, 'exact text, exactly three deliveries across restart');
   assert.equal(terminals.filter(t=>t.status==='completed').length, 3);
-  console.log(JSON.stringify({ok:true,threadId:tid,turns:3,exactText:true,viewer:true,restart:true,orphanReaped:true}));
+  evidence = {ok:true,threadId:tid,turns:3,exactText:true,viewer:true,restart:true,orphanReaped:true};
 } finally {
   if (viewer) closeHostPty(viewer);
   engine?.stop();
   await wait(() => pids.every(pid => !alive(pid)), 'all owned processes stopped', 10_000);
   rmSync(cwd, {recursive:true,force:true});
 }
+
+console.log(JSON.stringify({...evidence, cleanup:true}));
