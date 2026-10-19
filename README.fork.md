@@ -13,6 +13,8 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 
 当前分支以官方 `v3.47.0` 为基线，候选版本和精确上游提交由 [windows/release.json](windows/release.json) 固定。后续升级应从新的官方版本创建新的 `windows/native-vX.Y.Z` 分支，不把旧适配直接合并进 `master`。
 
+当前 `3.47.0-win.1` 为开发候选，尚未发布 Release。下方 `releases/latest` 安装命令安装的是已发布的稳定版，目前为 `3.39.0-win.1`；体验本候选请使用独立 clone 从源码构建。实测范围及产物来源见 [验证记录](windows/VALIDATION.md)。
+
 ## 推荐：安装已编译版本
 
 ### PowerShell
@@ -55,7 +57,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 
 ### 安装前 botmux 需停止
 
-升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定版本可在最后一条 PowerShell 命令增加 `-Version 3.47.0-win.1`。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
+升级前先确认没有正在执行的任务，执行 `botmux stop`，然后重新运行同一安装命令并执行 `botmux start`。指定已发布版本可在下载脚本后的 PowerShell 执行命令增加 `-Version 3.39.0-win.1`；未发布的候选版本不能通过 Release 下载。完整参数、回滚和排错见 [Windows 安装文档](windows/README.md#推荐下载已编译版本)。
 
 ## 在 Windows 上从源码构建安装
 

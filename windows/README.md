@@ -2,12 +2,14 @@
 
 目标：在不支持 WSL2 的 Windows 10/11 x64 上运行与上游同基线的 BotMux，并把每次升级成本限定为少量接入点复核和自动化验证。当前基线及候选版本由 `release.json` 固定。
 
+本分支的 `3.47.0-win.1` 尚为开发候选，未发布 Release；下方 `releases/latest` 仍安装已发布的 `3.39.0-win.1`。候选的构建与 Windows 实测证据见 [VALIDATION.md](VALIDATION.md)。
+
 ## 设计
 
 - `src/host/runtime.ts` 负责 Windows 可执行文件解析、MSYS 驱动器路径、PATHEXT、批处理启动及 PTY 进程树关闭。POSIX 路径保留原来的文件和权限检查语义。调用方只提交可执行文件和 argv。
-- ConPTY 使用 node-pty 自带 DLL，避开系统控制台关闭后的 `AttachConsole` 竞态。node-pty 1.1.0 在退出时可能遗留 conout worker，本版在 host 层集中释放它；升级 node-pty 时必须复核这一处内部接口，并确认验证进程能自然结束。
+- ConPTY 使用 node-pty 自带 DLL，避开系统控制台关闭后的 `AttachConsole` 竞态。当前随上游使用 node-pty 1.2.0-beta.15，host 层仍集中释放 conout worker；验证等待异步连接分配真实 PID 后再检查进程回收。升级 node-pty 时必须复核这一处内部接口，并确认验证进程能自然结束。
 - 复用上游 `PtyBackend`、内置 supervisor、持久化存储和 Task Scheduler。Windows 默认 PTY；POSIX 默认 tmux。显式配置仍有优先权。
-- Windows 日志使用上游已有 `LogFileFollower`，无需安装 tail。
+- Windows 日志使用 `src/host/log-tail.ts` 中保留的 `LogFileFollower`，无需安装 tail；上游 v3.47 已移除旧模块，本分支保留实现及行为测试。
 - `windows/` 管理独立 Node runtime 产物。保留上游依赖图、bun.lock 和 Bun 二进制发布链；package.json 的构建命令仅将 chmod 替换为跨平台 Node 权限脚本。node-pty 的 win32-x64 预编译模块随包提供，安装时不编译原生模块。
 - 安装器验证文件 SHA-256 清单、Node >=22.13、实际 CLI 版本和真实 ConPTY；通过后复制到不可变版本目录，原子替换 `active.json`。失败保留入口。候选包可重复验证；同一版本号不同内容会拒绝安装。
 - `botmux upgrade` 在 Windows 明确引导到此安装器，避免意外安装不含 Windows 运行时的官方 npm 元包。
@@ -55,7 +57,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 5. 安装到当前用户的 `%LOCALAPPDATA%\BotmuxWindows`，不写系统级目录；
 6. 幂等地把 `%LOCALAPPDATA%\BotmuxWindows\bin` 加入当前用户 PATH，并通知桌面环境。当前控制台也能立即使用完整路径，新开的控制台可直接执行小写 `botmux`。
 
-Git、Bun、Python 和 Visual Studio 只在“从源码构建”时需要，预编译安装不会检查或安装它们。TraeX、Claude Code 等 Agent CLI 以及飞书机器人凭据属于安装后的业务配置：用户按实际选择单独安装、登录和配置，通用安装器不会擅自处理。
+预编译安装无需 Git、Bun、Python 或 Visual Studio。从源码构建需要 Git 和 Bun；当前 Windows x64 原生依赖自带预编译组件，无需额外安装 Python 或 Visual Studio。TraeX、Claude Code 等 Agent CLI 以及飞书机器人凭据属于安装后的业务配置：用户按实际选择单独安装、登录和配置，通用安装器不会擅自处理。
 
 首次安装完成后：
 
@@ -72,7 +74,7 @@ botmux stop
 botmux start
 ```
 
-安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定版本可在执行脚本时传入 `-Version 3.47.0-win.1`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
+安装器不会在 fleet 仍存活时强制覆盖版本。失败时红色区域直接显示简短中文原因，黄色区域给出下一步处理方式，并隐藏 PowerShell 调用位置、`CategoryInfo`、`FullyQualifiedErrorId` 和已知 Node 实验性警告。安装失败不会删除用户的 `%USERPROFILE%\.botmux` 配置和会话数据。固定已发布版本可在执行脚本时传入 `-Version 3.39.0-win.1`；自定义位置可传入 `-InstallRoot 'D:\Apps\Botmux Windows'`。PowerShell 与 Git Bash 入口都作为 Release 附件发布，便于先下载审阅后再运行。
 
 ## Windows 本机从源码安装
 
@@ -83,7 +85,7 @@ botmux start
 | 环境 | 要求 |
 | --- | --- |
 | Windows | x64；实测机器为 Windows 10 build 19045 |
-| Node.js | >=22.13，包含 npm；本次源码构建使用 22.23.3，产物另在 24.21.0 验证运行 |
+| Node.js | >=22.13，包含 npm；本次源码构建使用 24.21.0，产物在 22.23.3 与 24.21.0 验证运行 |
 | Git for Windows | git.exe 可在 PATH 中找到；用于获取源码、校验版本及后续同步 |
 | Bun | 固定为 1.4.3；可用 `npm install -g bun@1.4.3` 安装，安装后新开终端 |
 | 网络 | 能访问源码仓库与 npm 依赖源；按本机网络设置代理 |

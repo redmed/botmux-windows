@@ -1,6 +1,61 @@
 # Windows native 候选版验证记录
 
-最近验证日期：2026-10-10。当前正式发布版本：`3.39.0-win.1`。
+最近验证日期：2026-10-20。当前开发候选：`3.47.0-win.1`；当前正式发布版本仍为 `3.39.0-win.1`。
+
+## v3.47.0-win.1 上游同步与候选验证
+
+本节记录开发候选的本地和 dev-win 实测，不代表已经发布或部署。官方 GitHub 最新稳定 Release 为 `v3.47.0`；检查时 npm latest 为 `3.46.0`，本次选择明确的官方稳定 tag。
+
+- 上游 tag `v3.47.0` 固定到 `ba2ad453fde414845292d3e9fd5d165f6d63f7f1`。Fork `master` 已快进到官方 `master` `1648f8ee0e4e915a0e43eacc07a57adb91c21773`，未混入 Windows 改造。
+- Windows 分支：`windows/native-v3.47.0`。30 个下游提交重放到新基线；保留上游 PTY reader 包装器、统一输入策略、模型迁移保护，以及 Windows HostRuntime 和原生 RPC 输入。
+- 最终运行代码及构建源码：`842b90acfb00232de2a4eb77bcec6c1f20a8f8aa`。其后的候选收尾提交只更新说明及验证记录。
+- 两端构建使用独立 clone 和独立依赖，Bun 固定 `1.4.3`；没有在开发 worktree 内执行依赖安装。
+
+### 本轮发现及修复
+
+1. 上游移除了旧日志跟随模块，而 Windows 的 `logs -f` 仍依赖它。将实现保留到 `src/host/log-tail.ts`，修正 CLI 引用，并保留 10 项行为测试。
+2. node-pty 升级到 `1.2.0-beta.15`，ConPTY 改为异步连接，初始 PID 为 0。认证验证器改为等到真实 PID 后记录进程，且仅在清理断言成功后输出通过结果。
+3. 真实 Worker 第一轮完成后，第二轮被上游新增的终端输入框保护阻塞。Windows 已就绪 RPC 的 viewer 不接收输入，不应等它重画 composer；两个屏幕保护入口改用既有 Windows RPC 就绪判定，保留在途回合和非 RPC 保护。新增 4 项回归。
+4. 第二轮修复后又发现 Worker 关闭超时。最小复现中，关闭真实 ConPTY 后立刻 `process.exit()` 会卡在原生退出阶段。单次让出事件循环虽在 Node 24 连续 5 次成功，但新增真实子进程回归在 Node 22 捕获到竞态；最终由 `deferHostProcessExit()` 等待已关闭 ConPTY 的原生退出回调确认后再退出，POSIX 仍同步退出。Windows 运行包验证加入真实子进程“关闭终端后显式退出”检查，避免仅验证自然退出而漏检。
+
+### 回归范围
+
+- Linux 发布工作流所列回归 15 个文件、262 项通过；加入共享 Worker 关闭、转移、existing app-server shutdown 与非 RPC fence 回归后，最终组合为 19 个文件、279 项全部通过。
+- 此外，模型迁移保护 48 项、Windows stdin 编码 9 项、原生 PTY smoke 2 项通过。模型迁移的完整 tmux/PTY 集成 14 项通过；初跑受当前 zsh 启动环境影响，固定 `SHELL=/bin/bash` 后复验通过，没有修改用户 shell 配置。
+- 测试夹具最初缺少 init prompt，导致新 RPC fence 断言不满足 eligibility；补全真实初始化字段后，新增 4 项在 Linux 与 Windows 均通过。
+
+### 构建产物
+
+Linux 与 Windows 均完成 Bun 1.4.3 的上游完整构建：源码、脚本、test mocks 类型检查，Dashboard bundle，以及产物和嵌入资源审计全部通过。Windows 本机构建后的专项回归为 6 个文件、46 项全部通过。
+
+- Linux 构建 ZIP：`botmux-windows-x64-3.47.0-win.1-final.zip`，41,060,713 字节；清单包含 7,170 个文件。
+- ZIP SHA-256：`059d890eaa0dcd21ecd13bb0573a2a6060820914a8f45ed1ac5f71251e33321f`。
+- Runtime build ID：`ed8063b4830c5d9d7a3af26770e6dcd4bbd164d80144b06443c6d7a2a04d5994`。
+- 本地未发布测试包保存在独立验证缓存中；不把二进制 ZIP 提交进 Git 历史。未来正式发布由 GitHub Actions 从发布提交重建，发布资产以届时生成的 SHA-256 为准。
+
+### Windows 实机验收
+
+最终 ZIP 在 dev-win 上先验证 SHA-256，再解压到含空格目录；以下测试使用该包，源码为 `842b90acfb00232de2a4eb77bcec6c1f20a8f8aa`：
+
+| 项目 | 结果 |
+| --- | --- |
+| Node 22.23.3 / 24.21.0 | CLI 版本、中文/引号/换行参数、批处理入口、ConPTY、子进程树回收和显式关闭退出均通过 |
+| TraeX 原生 RPC | 三轮调用；输入逐字相等且恰好投递三次，viewer、重启恢复、旧 app-server 回收及最终清理断言全部通过 |
+| 完整 BotMux Worker | fresh 两轮后关闭 Worker，再由新 Worker resume 第三轮；恰好 3 个 final_output，原生 thread 不变，没有 user_notify；恢复输入确认 5,833 ms，两个 Worker 及其归属进程正常回收 |
+
+TraeX 验证 thread：`01a15572-1564-7442-9421-06abea927021`。完整 Worker session：`91e03453-e9f1-4a81-9662-8cce5e074bc3`，native thread：`01a15572-80c4-7a61-b2b1-d792847599f8`，证据目录：`C:/Users/qiaogang/AppData/Local/Temp/botmux-worker-rpc-ol7qIg`。
+
+验证脚本复用原有 TraeX 登录状态，使用独立 BotMux profile、安装根和会话数据，没有向飞书发送测试消息。本轮没有部署新版全局 fleet，也没有进行新版全局机器人的飞书端验收；这与上述真实 Worker/RPC 验证范围不同。
+
+### 安装、升级、回滚及边界
+
+- Linux 最终包与 Windows 本机构建包均通过 `manage.mjs install` 安装到各自独立根目录；二者源码提交、Runtime build ID 和清单文件数完全一致。
+- 另一独立安装根完成 `3.39.0-win.1 → 3.47.0-win.1 → 3.39.0-win.1`；升级和回滚后的 current/previous 指针均符合预期。
+- `install.ps1` 使用本地 file URI 下载上述同一 ZIP 和 SHA-256 到新隔离根，归档校验、逐文件清单、ConPTY、关闭退出、激活及安装后 CLI 版本检查全部通过。脚本的 curl/tar 缺失回退逻辑本轮未修改，已有历史验收不重复计作本轮测试。
+- 两组安装验收均返回 `GlobalUnchanged=true`。最终审计确认全局仍为 current `3.39.0-win.1`、previous `3.30.0-win.4`，本轮测试运行目录的 Node 进程和本轮创建的 TraeX app-server 均为 0；已有全局实例及其他原有会话未清理。
+- Windows SSH 会话的 Git 凭据助手曾无法访问 wincredman。仅本次拉取命令禁用交互式凭据助手后，即可从公开 GitHub 仓库同步最终提交；未修改全局 Git 认证配置。随后完整 Windows 原生构建与 46 项测试通过。
+- 本轮未创建发布标签、未运行 GitHub Actions 发布流水线、未发布 Release。GitHub Latest 仍为 `windows-v3.39.0-win.1`；不能将这里的本地验证描述为云端 CI 已通过。候选源码和验证记录提交至版本分支，后续发布仍使用 `windows/publish-release.mjs` 及既有发布流水线。
+
 
 ## v3.39.0-win.1 上游同步与候选验证
 
