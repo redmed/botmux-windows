@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(join(root, 'package.json'));
 assert.equal(process.platform, 'win32', 'Run candidate verification on Windows');
@@ -63,4 +63,26 @@ try {
   assert.equal(alive, false, 'PTY kill left a grandchild running');
 } finally { rmSync(scratch, { recursive: true, force: true }); }
 if (process.env.BOTMUX_TEST_TRAEX) await probe(process.env.BOTMUX_TEST_TRAEX, ['--version'], 'internal edition');
+// A worker closes its PTY and explicitly exits in the same call stack. Merely
+// allowing this verifier to exit naturally misses node-pty's native join wedge.
+const closeProbe = `
+  import { PtyBackend } from ${JSON.stringify(pathToFileURL(join(root, 'dist/adapters/backend/pty-backend.js')).href)};
+  import { deferHostProcessExit } from ${JSON.stringify(pathToFileURL(join(root, 'dist/host/runtime.js')).href)};
+  const backend = new PtyBackend();
+  backend.spawn(process.execPath, ['-e', 'console.log("CLOSE-READY");setInterval(()=>{},1000)'],
+    {cwd:process.cwd(),env:process.env,cols:100,rows:30});
+  let closing = false;
+  backend.onData(text => {
+    if (closing || !text.includes('CLOSE-READY')) return;
+    closing = true;
+    backend.kill();
+    console.log('CLOSE-DONE');
+    if (deferHostProcessExit(0)) return;
+    process.exit(0);
+  });
+`;
+const closed = spawnSync(process.execPath, ['--input-type=module', '-e', closeProbe],
+  { encoding: 'utf8', timeout: 15_000, windowsHide: true });
+assert.equal(closed.status, 0, `PTY close/exit failed: ${closed.error?.message ?? closed.stderr}`);
+assert.ok(closed.stdout.includes('CLOSE-DONE'));
 console.log(JSON.stringify({ ok: true, version: pkg.version, node: process.versions.node, pty: typeof pty.spawn === 'function', traex: Boolean(process.env.BOTMUX_TEST_TRAEX) }));

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { deferHostProcessExit } from './host/runtime.js';
 import { captureCodexNativeProcesses, waitForCodexNativeRelease } from './core/codex-native-release.js';
 import { freezeCodexCleanupLaunch } from './core/codex-cleanup-launch.js';
 import { networkPolicySupportError, networkProxyError } from './core/sandbox-network-policy.js';
@@ -24441,6 +24442,7 @@ async function sendFatalWorkerErrorAndExit(
     try { cleanup(); } catch { /* best effort */ }
     try { process.kill(process.pid, 'SIGKILL'); } catch { /* fall through */ }
   }
+  if (deferHostProcessExit(1)) return;
   process.exit(1);
 }
 
@@ -25874,6 +25876,7 @@ process.on('message', async (raw: unknown) => {
       clearSendMarkers();
       clearBridgeTurnJournalFile();
       cleanup();
+      if (deferHostProcessExit(0)) return;
       process.exit(0);
     }
 
@@ -25896,6 +25899,7 @@ process.on('message', async (raw: unknown) => {
       // just flushed, so the daemon force-kills this now-disposable process
       // shortly after the ACK (see detachWorkerForTransfer's post-ACK kill).
       // We still request a clean exit; the daemon SIGKILL is the hard backstop.
+      if (deferHostProcessExit(0)) return;
       process.exit(0);
     }
 
@@ -25981,6 +25985,7 @@ process.on('message', async (raw: unknown) => {
       stopScreenshotLoop();
       killCli();
       cleanup();
+      if (deferHostProcessExit(0)) return;
       process.exit(0);
     }
 
@@ -26047,6 +26052,7 @@ process.on('message', async (raw: unknown) => {
       clearSendMarkers();
       clearBridgeTurnJournalFile();
       cleanup();
+      if (deferHostProcessExit(0)) return;
       process.exit(0);
     }
 
@@ -26153,6 +26159,7 @@ process.on('message', async (raw: unknown) => {
       sandboxCleanup = null;           // drop the ref WITHOUT calling it (keep the tree)
       sandboxTeardownDone = true;      // make the process.on('exit') hook a no-op
       cleanup();
+      if (deferHostProcessExit(0)) return;
       process.exit(0);
     }
   }
@@ -26213,6 +26220,7 @@ function shutdownWorkerForParentExit(reason: string): void {
       sandboxCleanup = null;
     }
     cleanup();
+    if (deferHostProcessExit(0)) return;
     process.exit(0);
     return;
   }
@@ -26225,6 +26233,7 @@ function shutdownWorkerForParentExit(reason: string): void {
   if (preserveSandbox) log(`Preserving credential-only relay outbox for the surviving pane during ${reason}`);
   killCli({ preserveSandbox });
   cleanup();
+  if (deferHostProcessExit(0)) return;
   process.exit(0);
 }
 
@@ -26317,6 +26326,7 @@ process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
     await reportWorkerFatal('Uncaught exception', err);
     teardownSandboxBestEffort();
     try { cleanup(); } catch { /* */ }
+    if (deferHostProcessExit(1)) return;
     process.exit(1);
   })();
 });
@@ -26327,6 +26337,7 @@ process.on('unhandledRejection', (reason: any) => {
     await reportWorkerFatal('Unhandled rejection', reason);
     teardownSandboxBestEffort();
     try { cleanup(); } catch { /* */ }
+    if (deferHostProcessExit(1)) return;
     process.exit(1);
   })();
 });

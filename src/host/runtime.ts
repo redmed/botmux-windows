@@ -102,6 +102,16 @@ export function hostPtyOptions(platform: NodeJS.Platform = process.platform): { 
   return platform === 'win32' ? { useConptyDll: true } : {};
 }
 
+/** After synchronous ConPTY teardown, its native exit notification still needs
+ * the JS event loop. Exiting in the same stack can deadlock node-pty's thread
+ * finalizer. Callers must return when this schedules the Windows exit; POSIX
+ * retains its synchronous process.exit path. */
+export function deferHostProcessExit(code: number): boolean {
+  if (process.platform !== 'win32') return false;
+  setImmediate(() => process.exit(code));
+  return true;
+}
+
 // node-pty 1.1.0's Windows public kill() leaves the conout worker referenced
 // when no final data event follows close. Keep this version-specific cleanup
 // in the host adapter; the real Windows smoke asserts the verifier can exit.
