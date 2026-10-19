@@ -196,7 +196,10 @@ describe('worker wiring', () => {
       const admit = "if (codexModelMigrationCheckNeeded() && await codexModelMigrationAdmit('write') !== 'proceed') return;";
       // First statement: all later guards see post-drain state; isFlushing /
       // injectionFlushing still serialize concurrent calls.
-      expectBefore(region, admit, 'if (idleDetector?.isStartupPending()) return;');
+      const startupGuard = name.includes('flushPending():')
+        ? 'if (idleDetector?.isStartupPending() && !windowsRpcInputReady()) return;'
+        : 'if (idleDetector?.isStartupPending()) return;';
+      expectBefore(region, admit, startupGuard);
       // No second, unverified screen read for the picker further down.
       expect(region.match(/codexModelMigration(?:Admit|BlocksInput)\(/g), name).toHaveLength(1);
     }
