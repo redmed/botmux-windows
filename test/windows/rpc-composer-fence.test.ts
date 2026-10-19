@@ -3,15 +3,21 @@ import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { hasReadyWindowsRpcInput } from '../../src/codex-rpc-lifecycle.js';
 import { inspectPostTerminalComposer } from '../../src/utils/pty-input-policy.js';
+import type { DaemonToWorker } from '../../src/types.js';
 
 const worker = readFileSync(new URL('../../src/worker.ts', import.meta.url), 'utf8');
 const slice = (start: string, end: string) => worker.slice(worker.indexOf(start), worker.indexOf(end));
 
 function harness(platform: NodeJS.Platform, rpc: boolean, thread: string | undefined) {
   const reset = vi.fn();
+  const config: Extract<DaemonToWorker, { type: 'init' }> = {
+    type: 'init', sessionId: 'win-rpc', chatId: 'chat', rootMessageId: 'root',
+    workingDir: 'C:/work', cliId: 'traex', backendType: 'pty', codexRpcInput: rpc,
+    prompt: 'first input', larkAppId: 'test', larkAppSecret: 'test',
+  };
   const globals = {
     windowsRpcInputReady: () => hasReadyWindowsRpcInput(
-      { cliId: 'traex', backendType: 'pty', codexRpcInput: rpc } as never, thread, platform,
+      config, thread, platform,
     ),
     backendScreenEvidenceIsAuthoritativeForMutation: () => true,
     captureBackendScreen: () => '', // RPC viewer need not draw a composer.
