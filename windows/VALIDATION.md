@@ -4,7 +4,7 @@
 
 ## v3.47.0-win.1 上游同步与候选验证
 
-本节记录开发候选的本地和 dev-win 实测，不代表已经发布或部署。官方 GitHub 最新稳定 Release 为 `v3.47.0`；检查时 npm latest 为 `3.46.0`，本次选择明确的官方稳定 tag。
+本节记录开发候选的本地和 dev-win 隔离实测；后续授权的全局部署见下节，尚未发布 Release。官方 GitHub 最新稳定 Release 为 `v3.47.0`；检查时 npm latest 为 `3.46.0`，本次选择明确的官方稳定 tag。
 
 - 上游 tag `v3.47.0` 固定到 `ba2ad453fde414845292d3e9fd5d165f6d63f7f1`。Fork `master` 已快进到官方 `master` `1648f8ee0e4e915a0e43eacc07a57adb91c21773`，未混入 Windows 改造。
 - Windows 分支：`windows/native-v3.47.0`。30 个下游提交重放到新基线；保留上游 PTY reader 包装器、统一输入策略、模型迁移保护，以及 Windows HostRuntime 和原生 RPC 输入。
@@ -45,17 +45,52 @@ Linux 与 Windows 均完成 Bun 1.4.3 的上游完整构建：源码、脚本、
 
 TraeX 验证 thread：`01a15572-1564-7442-9421-06abea927021`。完整 Worker session：`91e03453-e9f1-4a81-9662-8cce5e074bc3`，native thread：`01a15572-80c4-7a61-b2b1-d792847599f8`，证据目录：`C:/Users/qiaogang/AppData/Local/Temp/botmux-worker-rpc-ol7qIg`。
 
-验证脚本复用原有 TraeX 登录状态，使用独立 BotMux profile、安装根和会话数据，没有向飞书发送测试消息。本轮没有部署新版全局 fleet，也没有进行新版全局机器人的飞书端验收；这与上述真实 Worker/RPC 验证范围不同。
+验证脚本复用原有 TraeX 登录状态，使用独立 BotMux profile、安装根和会话数据，没有向飞书发送测试消息。候选阶段没有部署新版全局 fleet，也没有进行新版全局机器人的飞书端验收；后续全局部署与飞书验收另行记录，避免混淆验证范围。
 
 ### 安装、升级、回滚及边界
 
 - Linux 最终包与 Windows 本机构建包均通过 `manage.mjs install` 安装到各自独立根目录；二者源码提交、Runtime build ID 和清单文件数完全一致。
 - 另一独立安装根完成 `3.39.0-win.1 → 3.47.0-win.1 → 3.39.0-win.1`；升级和回滚后的 current/previous 指针均符合预期。
 - `install.ps1` 使用本地 file URI 下载上述同一 ZIP 和 SHA-256 到新隔离根，归档校验、逐文件清单、ConPTY、关闭退出、激活及安装后 CLI 版本检查全部通过。脚本的 curl/tar 缺失回退逻辑本轮未修改，已有历史验收不重复计作本轮测试。
-- 两组安装验收均返回 `GlobalUnchanged=true`。最终审计确认全局仍为 current `3.39.0-win.1`、previous `3.30.0-win.4`，本轮测试运行目录的 Node 进程和本轮创建的 TraeX app-server 均为 0；已有全局实例及其他原有会话未清理。
+- 两组安装验收均返回 `GlobalUnchanged=true`。候选隔离验证结束时审计确认全局仍为 current `3.39.0-win.1`、previous `3.30.0-win.4`，本轮测试运行目录的 Node 进程和本轮创建的 TraeX app-server 均为 0；已有全局实例及其他原有会话未清理。
 - Windows SSH 会话的 Git 凭据助手曾无法访问 wincredman。仅本次拉取命令禁用交互式凭据助手后，即可从公开 GitHub 仓库同步最终提交；未修改全局 Git 认证配置。随后完整 Windows 原生构建与 46 项测试通过。
 - 本轮未创建发布标签、未运行 GitHub Actions 发布流水线、未发布 Release。GitHub Latest 仍为 `windows-v3.39.0-win.1`；不能将这里的本地验证描述为云端 CI 已通过。候选源码和验证记录提交至版本分支，后续发布仍使用 `windows/publish-release.mjs` 及既有发布流水线。
 
+
+## v3.47.0-win.1 当前用户全局部署与飞书验收
+
+2026-10-20，用户明确授权将 dev-win 切换到最新版并使用本群 Windows 机器人验证。目标为 Windows 10 企业版 x64、build 19045、Node 22.23.3；部署的是上一节已验证的同一最终 ZIP，运行源码和 Runtime build ID 均未改变。
+
+### 切换与保留
+
+- 切换前通过 Dashboard 已认证的会话状态接口确认三个现有会话均为 `idle`，而非仅根据 CLI 的 `online` 判断。全局配置只有一个机器人。
+- 旧临时解压目录预检发现缺少 `node_modules/hono/dist/adapter/aws-lambda/types.js`，安装在停机前被拦住。原 ZIP 的 SHA-256 正确；重新解压到新目录后，7,170 个文件全部通过清单校验，再继续部署。
+- `active.json` 与配置根的九个文件已备份到 `C:/Users/qiaogang/AppData/Local/BotmuxWindows/backups/pre-3.47.0-win.1-20261020-102804`，备份仅保留在 Windows 本机。随后停止 fleet，通过 `manage.mjs install` 安装到原全局程序根，再启动 fleet。
+- 当前指针为 `3.47.0-win.1`，previous 为 `3.39.0-win.1`。安装器的逐文件、CLI、ConPTY 与关闭退出检查通过；安装阶段 `bots.json` 哈希不变，没有删除配置或会话。
+- 独立 PowerShell 的 `Get-Command botmux` 解析到 `C:/Users/qiaogang/AppData/Local/BotmuxWindows/bin/botmux.cmd`。机器人进程内可能先解析到会话注入的命令代理，因此全局入口以独立控制台检查为准。
+- `autostart.cmd` 已随启动刷新到 `3.47.0-win.1`，现有 `botmux-daemon` 任务为 Enabled、Ready。本轮验证了服务重启及自启动配置，没有重启 Windows 操作系统。
+
+### 实际群消息与重启恢复
+
+Windows 机器人在本机执行版本、服务和 Dashboard HTTP 检查；测试标记与可追溯的最终消息如下：
+
+| 检查 | 实测结果 | 飞书最终消息 ID |
+| --- | --- | --- |
+| 首轮本机检查 | `3.47.0-win.1`；supervisor、daemon、Dashboard 在线；HTTP 200；previous 为 `3.39.0-win.1` | `om_x100b625960bbc4b8b4c24f3d769dee0` |
+| 原首轮请求补投 | 同样通过版本与服务检查；对应另一条原始请求 | `om_x100b6259612f18b0cf22a2c64014f29` |
+| 连续第二轮 | `GLOBAL347-TWO 中文、顿号、连续回合正常；上一轮：GLOBAL347-ONE。` | `om_x100b62597e1a50b8b0e24be74ec0a73` |
+| 受控重启后第三轮 | `GLOBAL347-THREE 中文、重启恢复、正常。`；版本、服务、HTTP 200 正常，准确回忆 `GLOBAL347-ONE` 和 `GLOBAL347-TWO` | `om_x100b625974b58498cfe7a0f57e2ee01` |
+
+BotMux session 始终为 `f06ea3a1-25be-49fe-83e4-f90bb79dfd42`，TraeX native thread 始终为 `01a12308-bd8e-73c0-9b57-0c9add3c61fc`。只读检查原生会话日志的 `history_mutation` 用户输入，四条测试请求各有一条 `append` 记录，没有同一测试输入被重复提交。重启后第三轮于 `02:36:06.984Z` 持久化到同一 native thread。
+
+首轮遇到旧对话授权过期：通过正式 `botmux grant chat` 命令，以接收端视角的实时群成员 open_id 补齐本群 talk-only 授权。跨主机 `--subject-bot` 因发送方 App 不在接收端本地配置而被拒绝，改用文档支持的 `--subject-open-id` 后成功，未绕过群成员校验。原请求稍后被自动补投，而人工重发的测试请求也已执行，因此有两条同名首轮回复；它们对应不同请求及不同 native turn，不能误记为单次输入重复执行。后续另一端旧的三条消息额度也耗尽，同样补齐仅限本群的对话授权；没有授予管理命令权限。
+
+### 最终状态与发布边界
+
+- 重启前再次确认会话无运行中回合及排队输入。supervisor 从 PID 2624 切换到 5748；最终 daemon PID 9708、Dashboard PID 2792、Worker PID 3256，四个 BotMux 进程全部来自 `3.47.0-win.1`，旧版程序进程为 0。关闭已结束部署的 SSH 连接后服务仍在线。
+- 最终群会话为 `idle`，另两个原有会话为 `dormant`，原已关闭会话仍关闭；会话 ID 和原生 thread 均保留。
+- 机器人凭据及其它配置保留；相对部署前备份，最终只有 `quotaState` 和 `grantExpiryState` 两个字段发生上述测试授权及用量变化。未升级或重启 Linux BotMux。
+- 本轮只部署并验收候选，没有创建 Release/tag 或触发发布工作流。公开 `releases/latest` 仍对应已发布的 `3.39.0-win.1`；本节不能作为新版 GitHub Actions 已通过或新版公开安装包已发布的证据。
 
 ## v3.39.0-win.1 上游同步与候选验证
 

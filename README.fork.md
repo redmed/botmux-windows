@@ -13,7 +13,7 @@ BotMux 的产品介绍、配置方法和通用能力仍以上游 [deepcoldy/botm
 
 当前分支以官方 `v3.47.0` 为基线，候选版本和精确上游提交由 [windows/release.json](windows/release.json) 固定。后续升级应从新的官方版本创建新的 `windows/native-vX.Y.Z` 分支，不把旧适配直接合并进 `master`。
 
-当前 `3.47.0-win.1` 为开发候选，尚未发布 Release。下方 `releases/latest` 安装命令安装的是已发布的稳定版，目前为 `3.39.0-win.1`；体验本候选请使用独立 clone 从源码构建。实测范围及产物来源见 [验证记录](windows/VALIDATION.md)。
+当前 `3.47.0-win.1` 已部署到 dev-win 当前用户全局安装，尚未发布 Release。下方 `releases/latest` 安装命令安装的是已发布的稳定版，目前为 `3.39.0-win.1`；体验本候选请使用独立 clone 从源码构建。实测范围及产物来源见 [验证记录](windows/VALIDATION.md)。
 
 ## 推荐：安装已编译版本
 
